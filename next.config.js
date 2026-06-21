@@ -13,13 +13,15 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.mercadopago.com https://embed.tawk.to https://va.vercel-scripts.com",
+      // ✅ Se permite cualquier subdominio de tawk.to
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.mercadopago.com https://*.tawk.to https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
-      "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://tawk.to",
-      // ✅ Agregados los dominios de Tawk.to para connect-src
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://embed.tawk.to https://va.tawk.to",
+      // ✅ Se permite cualquier subdominio de tawk.to para iframes
+      "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://*.tawk.to",
+      // ✅ Se permite cualquier subdominio de tawk.to para conexiones (fetch, XHR, etc.)
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://*.tawk.to https://va.tawk.to",
       "media-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
