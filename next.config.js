@@ -18,7 +18,8 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
       "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://tawk.to",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com",
+      // ✅ Agregados los dominios de Tawk.to para connect-src
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://embed.tawk.to https://va.tawk.to",
       "media-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
