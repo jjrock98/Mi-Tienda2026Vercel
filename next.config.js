@@ -13,15 +13,18 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // ✅ Se permite cualquier subdominio de tawk.to
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.mercadopago.com https://*.tawk.to https://va.vercel-scripts.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
-      // ✅ Se permite cualquier subdominio de tawk.to para iframes
+      // Scripts: Mercado Pago, Tawk.to (todos los subdominios), CDN, Vercel
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://sdk.mercadopago.com https://*.tawk.to https://cdn.jsdelivr.net https://va.vercel-scripts.com",
+      // Estilos: Google Fonts, Tawk.to, CDN
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tawk.to https://cdn.jsdelivr.net",
+      // Fuentes: Google, Tawk.to
+      "font-src 'self' https://fonts.gstatic.com https://*.tawk.to",
+      // Imágenes: Supabase, Google, Tawk.to, placeholders
+      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://*.tawk.to https://*.tawk.link https://via.placeholder.com",
+      // Frames: Mercado Pago, YouTube, Google, Tawk.to
       "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://*.tawk.to",
-      // ✅ Se permite cualquier subdominio de tawk.to para conexiones (fetch, XHR, etc.)
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://*.tawk.to https://va.tawk.to",
+      // Conexiones (fetch, WebSockets, XHR): Supabase, Mercado Pago, Tawk.to, CDN
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://*.tawk.to wss://*.tawk.to https://va.tawk.to https://embed.tawk.to https://cdn.jsdelivr.net",
       "media-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
