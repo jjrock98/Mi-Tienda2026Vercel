@@ -185,7 +185,7 @@ VALUES
 ON CONFLICT (clave) DO NOTHING;
 
 INSERT INTO contact_info (email, telefono, whatsapp, horario)
-VALUES ('contacto@mitienda.com', '+54 11 0000-0000', '5491100000000', 'Lunes a Viernes 9-18hs')
+VALUES ('clarosjavier1998@gmail.com', '+54 11 66585257', '5491166585257', 'Lunes, Miércoles y Viernes 7-13hs')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO location_info (mapa_iframe_url, descripcion)

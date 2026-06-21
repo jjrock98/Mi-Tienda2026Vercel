@@ -136,7 +136,7 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
           <h2 className="font-semibold mb-2">Información de contacto pública</h2>
           {field('Email',                contact.email,     (v) => setContact({ ...contact, email: v }))}
           {field('Teléfono',             contact.telefono,  (v) => setContact({ ...contact, telefono: v }))}
-          {field('WhatsApp (solo número)',contact.whatsapp, (v) => setContact({ ...contact, whatsapp: v }), { placeholder: '5491100000000' })}
+          {field('WhatsApp (solo número)',contact.whatsapp, (v) => setContact({ ...contact, whatsapp: v }), { placeholder: '5491166585257' })}
           {field('Instagram (@usuario)', contact.instagram, (v) => setContact({ ...contact, instagram: v }))}
           {field('Facebook (URL)',        contact.facebook,  (v) => setContact({ ...contact, facebook: v }))}
           {field('Horario de atención',  contact.horario,   (v) => setContact({ ...contact, horario: v }))}

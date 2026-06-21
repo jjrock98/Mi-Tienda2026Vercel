@@ -1,9 +1,22 @@
 import Link from 'next/link';
-import { Instagram, Facebook, MessageCircle } from 'lucide-react';
+import { Instagram, Facebook, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
+import type { ContactInfo } from '@/types';
 
-export function Footer() {
+interface FooterProps {
+  contactInfo?: ContactInfo | null;
+}
+
+export function Footer({ contactInfo }: FooterProps) {
   const year = new Date().getFullYear();
   const tienda = process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda';
+
+  // Extraer datos con fallbacks
+  const instagram = contactInfo?.instagram?.replace(/^@/, '') || '';
+  const facebook = contactInfo?.facebook || '';
+  const whatsapp = contactInfo?.whatsapp || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '';
+  const email = contactInfo?.email || '';
+  const telefono = contactInfo?.telefono || '';
+  const direccion = contactInfo?.direccion || '';
 
   return (
     <footer className="border-t border-border bg-surface-2 mt-16">
@@ -15,7 +28,7 @@ export function Footer() {
             <p className="mt-2 text-sm text-muted">Venta por packs. Calidad garantizada.</p>
           </div>
 
-          {/* Links */}
+          {/* Links Tienda */}
           <div>
             <p className="mb-3 text-sm font-semibold">Tienda</p>
             <ul className="space-y-2 text-sm text-muted">
@@ -26,45 +39,68 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Info */}
+          {/* Contacto (dinámico) */}
           <div>
-            <p className="mb-3 text-sm font-semibold">Información</p>
+            <p className="mb-3 text-sm font-semibold">Contacto</p>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link href="/faq"       className="hover:text-foreground transition-colors">FAQ</Link></li>
-              <li><Link href="/politicas" className="hover:text-foreground transition-colors">Políticas de privacidad</Link></li>
-              <li><Link href="/terminos"  className="hover:text-foreground transition-colors">Términos y condiciones</Link></li>
-              <li><Link href="/contacto"  className="hover:text-foreground transition-colors">Contacto</Link></li>
-              <li><Link href="/ubicacion" className="hover:text-foreground transition-colors">Ubicación</Link></li>
+              {email && (
+                <li className="flex items-center gap-2">
+                  <Mail size={14} className="shrink-0" />
+                  <a href={`mailto:${email}`} className="hover:text-foreground transition-colors">{email}</a>
+                </li>
+              )}
+              {telefono && (
+                <li className="flex items-center gap-2">
+                  <Phone size={14} className="shrink-0" />
+                  <a href={`tel:${telefono}`} className="hover:text-foreground transition-colors">{telefono}</a>
+                </li>
+              )}
+              {direccion && (
+                <li className="flex items-center gap-2">
+                  <MapPin size={14} className="shrink-0" />
+                  <span>{direccion}</span>
+                </li>
+              )}
             </ul>
           </div>
 
-          {/* Redes sociales - CORREGIDO: separación vertical */}
+          {/* Redes sociales (dinámico) */}
           <div>
-            <p className="mb-4 text-sm font-semibold">Redes sociales</p> {/* Aumentado mb-4 para separar del título */}
-            <div className="flex gap-3"> {/* Los íconos siguen en horizontal */}
-              <a
-                href="#"
-                className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
-                aria-label="Instagram"
-              >
-                <Instagram size={18} />
-              </a>
-              <a
-                href="#"
-                className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
-                aria-label="Facebook"
-              >
-                <Facebook size={18} />
-              </a>
-              <a
-                href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`}
-                className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="WhatsApp"
-              >
-                <MessageCircle size={18} />
-              </a>
+            <p className="mb-4 text-sm font-semibold">Redes sociales</p>
+            <div className="flex gap-3">
+              {instagram && (
+                <a
+                  href={`https://instagram.com/${instagram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
+                  aria-label="Instagram"
+                >
+                  <Instagram size={18} />
+                </a>
+              )}
+              {facebook && (
+                <a
+                  href={facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
+                  aria-label="Facebook"
+                >
+                  <Facebook size={18} />
+                </a>
+              )}
+              {whatsapp && (
+                <a
+                  href={`https://wa.me/${whatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
+                  aria-label="WhatsApp"
+                >
+                  <MessageCircle size={18} />
+                </a>
+              )}
             </div>
           </div>
         </div>

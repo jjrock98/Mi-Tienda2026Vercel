@@ -5,8 +5,9 @@ import { Toaster } from 'react-hot-toast';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import dynamic from 'next/dynamic';
+import { createClient } from '@/lib/supabase/server';
 
-// ✅ Componentes que se cargan SOLO en el cliente (evitan errores de SSR/SSG)
+// Componentes dinámicos
 const Navbar = dynamic(
   () => import('@/components/layout/Navbar').then((mod) => mod.Navbar),
   { ssr: false }
@@ -17,13 +18,12 @@ const EmailVerificationBanner = dynamic(
   { ssr: false }
 );
 
-// ── El resto de componentes se mantienen estáticos ──
+// Componentes estáticos
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/common/WhatsAppButton';
 import { TawkTo } from '@/components/common/TawkTo';
 import { CookieConsent } from '@/components/common/CookieConsent';
 import { BackToTop } from '@/components/common/BackToTop';
-// import { PageProgress } from '@/components/common/PageProgress'; // Comentado por ahora
 
 import './globals.css';
 
@@ -48,22 +48,28 @@ export const viewport: Viewport = {
   width: 'device-width', initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  
+  // Obtener datos de contacto – manejamos error con el objeto { data, error }
+  const { data: contactInfo, error } = await supabase
+    .from('contact_info')
+    .select('*')
+    .single();
+
+  // Si hay error (ej: no existe fila), usamos null
+  const contactData = error ? null : contactInfo;
+
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-body bg-surface text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {/* PageProgress comentado por ahora */}
-          {/* <PageProgress /> */}
-          
-          <EmailVerificationBanner /> {/* ✅ Ahora dinámico */}
-          
+          <EmailVerificationBanner />
           <div className="flex min-h-screen flex-col">
-            <Navbar /> {/* ✅ Dinámico */}
+            <Navbar />
             <main className="flex-1">{children}</main>
-            <Footer />
+            <Footer contactInfo={contactData} />
           </div>
-          
           <WhatsAppButton />
           <BackToTop />
           <CookieConsent />
