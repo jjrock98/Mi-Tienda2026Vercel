@@ -10,7 +10,6 @@ export function Footer({ contactInfo }: FooterProps) {
   const year = new Date().getFullYear();
   const tienda = process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda';
 
-  // Extraer datos con fallbacks
   const instagram = contactInfo?.instagram?.replace(/^@/, '') || '';
   const facebook = contactInfo?.facebook || '';
   const whatsapp = contactInfo?.whatsapp || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '';
@@ -19,8 +18,10 @@ export function Footer({ contactInfo }: FooterProps) {
   const direccion = contactInfo?.direccion || '';
 
   return (
-    <footer className="border-t border-border bg-surface-2 mt-16">
-      <div className="mx-auto max-w-7xl px-4 py-12">
+    // ✅ En móvil menos margen superior (mt-8), en desktop el original (mt-16)
+    <footer className="border-t border-border bg-surface-2 mt-8 md:mt-16">
+      {/* ✅ Padding vertical reducido en móvil (py-8), en desktop el original (py-12) */}
+      <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div>
@@ -64,7 +65,7 @@ export function Footer({ contactInfo }: FooterProps) {
             </ul>
           </div>
 
-          {/* Redes sociales (dinámico) */}
+          {/* Redes sociales */}
           <div>
             <p className="mb-4 text-sm font-semibold">Redes sociales</p>
             <div className="flex gap-3">

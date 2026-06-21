@@ -51,13 +51,11 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   
-  // Obtener datos de contacto – manejamos error con el objeto { data, error }
   const { data: contactInfo, error } = await supabase
     .from('contact_info')
     .select('*')
     .single();
 
-  // Si hay error (ej: no existe fila), usamos null
   const contactData = error ? null : contactInfo;
 
   return (
@@ -67,7 +65,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <EmailVerificationBanner />
           <div className="flex min-h-screen flex-col">
             <Navbar />
-            <main className="flex-1">{children}</main>
+            {/* ✅ Padding inferior para evitar que los botones fijos tapen el contenido */}
+            <main className="flex-1 pb-24 md:pb-20 lg:pb-16">
+              {children}
+            </main>
             <Footer contactInfo={contactData} />
           </div>
           <WhatsAppButton />
