@@ -38,20 +38,30 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Social */}
+          {/* Redes sociales - CORREGIDO: separación vertical */}
           <div>
-            <p className="mb-3 text-sm font-semibold">Redes sociales</p>
-            <div className="flex gap-3">
-              <a href="#" className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground" aria-label="Instagram">
+            <p className="mb-4 text-sm font-semibold">Redes sociales</p> {/* Aumentado mb-4 para separar del título */}
+            <div className="flex gap-3"> {/* Los íconos siguen en horizontal */}
+              <a
+                href="#"
+                className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
+                aria-label="Instagram"
+              >
                 <Instagram size={18} />
               </a>
-              <a href="#" className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground" aria-label="Facebook">
+              <a
+                href="#"
+                className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
+                aria-label="Facebook"
+              >
                 <Facebook size={18} />
               </a>
               <a
                 href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`}
                 className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
-                target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
               >
                 <MessageCircle size={18} />
               </a>
