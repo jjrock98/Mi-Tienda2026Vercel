@@ -13,8 +13,11 @@ export function TawkTo() {
     s1.charset = 'UTF-8';
     s1.setAttribute('crossorigin', '*');
     document.head.appendChild(s1);
-    return () => { document.head.removeChild(s1); };
+    return () => {
+      if (document.head.contains(s1)) {
+        document.head.removeChild(s1);
+      }
+    };
   }, [propertyId, widgetId]);
 
-  return null;
-}
+  return null;}
