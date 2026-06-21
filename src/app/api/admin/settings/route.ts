@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { revalidatePath } from 'next/cache'; // ✅ Importante
+import { revalidatePath } from 'next/cache';
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -34,8 +34,9 @@ export async function PATCH(req: NextRequest) {
       .eq('clave', clave);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     
-    // Revalidar páginas que muestren configuraciones (ej. el nombre de la tienda en el footer)
+    // Revalidar rutas que pueden verse afectadas por configuraciones
     revalidatePath('/');
+    revalidatePath('/mantenimiento'); // Para que el mensaje se actualice al instante
     return NextResponse.json({ ok: true });
   }
 
@@ -50,14 +51,13 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // ✅ Revalidar rutas según la tabla actualizada
+  // Revalidar rutas según la tabla actualizada
   if (table === 'contact_info' || table === 'location_info') {
     revalidatePath('/');
     revalidatePath('/contacto');
     revalidatePath('/ubicacion');
   }
   if (table === 'bank_info') {
-    // Si hay una página que muestre datos bancarios (ej. checkout), agregarla
     revalidatePath('/');
     // revalidatePath('/pago'); // si existe
   }

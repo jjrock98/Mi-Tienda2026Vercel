@@ -4,27 +4,51 @@ import { updateSession } from '@/lib/supabase/middleware';
 const PROFILE_REQUIRED_ROUTES = ['/checkout', '/mis-pedidos', '/wishlist'];
 const AUTH_REQUIRED_ROUTES    = [
   '/checkout', '/mis-pedidos', '/wishlist',
-  '/completar-perfil', '/perfil',   // ✅ /perfil added
+  '/completar-perfil', '/perfil',
 ];
 const ADMIN_ROUTES = ['/admin'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── Maintenance mode ─────────────────────────────────────────
-  if (
-    process.env.MAINTENANCE_MODE === 'true' &&
-    !pathname.startsWith('/admin') &&
-    !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/api') &&
-    pathname !== '/mantenimiento'
-  ) {
-    return NextResponse.redirect(new URL('/mantenimiento', request.url));
-  }
-
+  // ── Primero obtenemos el cliente de Supabase desde updateSession ──
   const { supabaseResponse, user, supabase } = await updateSession(request);
 
-  // ── Auth required ─────────────────────────────────────────────
+  // ── Maintenance mode (usando el cliente de Supabase ya creado) ──
+  const isExcluded =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/mantenimiento' ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith('/robots.txt') ||
+    pathname.startsWith('/sitemap.xml') ||
+    pathname.startsWith('/manifest.json') ||
+    pathname.startsWith('/og');
+
+  if (!isExcluded) {
+    try {
+      const { data } = await supabase
+        .from('site_settings')
+        .select('valor')
+        .eq('clave', 'mantenimiento')
+        .single();
+
+      const mantenimientoActivo = data?.valor === 'true';
+
+      if (mantenimientoActivo) {
+        return NextResponse.redirect(new URL('/mantenimiento', request.url));
+      }
+    } catch (error) {
+      // Si falla la consulta, asumimos que NO está en mantenimiento
+      console.error('Error al leer estado de mantenimiento:', error);
+    }
+  }
+
+  // ── Resto de la lógica (auth, admin, perfil) ──
+
+  // Auth required
   const requiresAuth = AUTH_REQUIRED_ROUTES.some((r) => pathname.startsWith(r));
   if (requiresAuth && !user) {
     const url = new URL('/auth/login', request.url);
@@ -32,7 +56,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ── Admin check ───────────────────────────────────────────────
+  // Admin check
   if (ADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login?redirect=/admin', request.url));
@@ -44,7 +68,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ── Profile completeness (solo rutas críticas) ────────────────
+  // Profile completeness
   const requiresProfile = PROFILE_REQUIRED_ROUTES.some((r) => pathname.startsWith(r));
   if (requiresProfile && user) {
     const { data: profile } = await supabase
