@@ -11,7 +11,6 @@ async function verifyAdmin() {
   return p?.rol === 'admin' ? user : null;
 }
 
-// PATCH /api/admin/settings?table=...
 export async function PATCH(req: NextRequest) {
   const adminUser = await verifyAdmin();
   if (!adminUser) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
@@ -22,21 +21,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Tabla no permitida' }, { status: 400 });
   }
 
-  const body  = await req.json();
+  const body = await req.json();
   const admin = createAdminClient();
 
-  // site_settings usa upsert por clave
+  // site_settings: usar upsert para crear la fila si no existe
   if (table === 'site_settings') {
     const { clave, valor } = body;
     const { error } = await admin
       .from('site_settings')
-      .update({ valor, updated_at: new Date().toISOString() })
-      .eq('clave', clave);
+      .upsert(
+        { clave, valor, updated_at: new Date().toISOString() },
+        { onConflict: 'clave' }
+      );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    
-    // Revalidar rutas que pueden verse afectadas por configuraciones
+
     revalidatePath('/');
-    revalidatePath('/mantenimiento'); // Para que el mensaje se actualice al instante
+    revalidatePath('/mantenimiento');
     return NextResponse.json({ ok: true });
   }
 
@@ -51,7 +51,6 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Revalidar rutas según la tabla actualizada
   if (table === 'contact_info' || table === 'location_info') {
     revalidatePath('/');
     revalidatePath('/contacto');
@@ -59,7 +58,6 @@ export async function PATCH(req: NextRequest) {
   }
   if (table === 'bank_info') {
     revalidatePath('/');
-    // revalidatePath('/pago'); // si existe
   }
 
   return NextResponse.json({ ok: true });
