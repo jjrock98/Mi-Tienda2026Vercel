@@ -24,6 +24,7 @@ import { WhatsAppButton } from '@/components/common/WhatsAppButton';
 import { TawkTo } from '@/components/common/TawkTo';
 import { CookieConsent } from '@/components/common/CookieConsent';
 import { BackToTop } from '@/components/common/BackToTop';
+import { ConfirmationMessage } from '@/components/common/ConfirmationMessage'; // Nuevo
 
 import './globals.css';
 
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <BackToTop />
           <CookieConsent />
           <TawkTo />
+          <ConfirmationMessage /> {/* Nuevo componente */}
           <Toaster position="top-right" toastOptions={{ className: 'dark:bg-zinc-800 dark:text-white text-sm', duration: 3500 }} />
         </ThemeProvider>
         <Analytics />

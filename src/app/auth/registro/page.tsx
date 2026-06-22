@@ -87,8 +87,9 @@ export default function RegistroPage() {
       email:    data.email,
       password: data.password,
       options: {
-        data:            { full_name: data.nombre.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/verificar`,
+        data: { full_name: data.nombre.trim() },
+        // 🔽 CAMBIO: ahora redirige a la home con confirmed=true
+        emailRedirectTo: `${window.location.origin}/?confirmed=true`,
       },
     });
     if (error) {

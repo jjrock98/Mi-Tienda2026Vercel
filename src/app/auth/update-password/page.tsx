@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UpdatePasswordPage() {
@@ -14,6 +14,22 @@ export default function UpdatePasswordPage() {
   const [showPw,          setShowPw]          = useState(false);
   const [loading,         setLoading]         = useState(false);
   const [done,            setDone]            = useState(false);
+  const [error,           setError]           = useState<string | null>(null);
+  const [sessionChecked,  setSessionChecked]  = useState(false);
+
+  // ✅ Verificar si hay una sesión activa (token válido)
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('El enlace de restablecimiento ha expirado o es inválido. Solicita uno nuevo.');
+        // Opcional: redirigir automáticamente después de 3 segundos
+        setTimeout(() => router.push('/auth/reset-password'), 3000);
+      }
+      setSessionChecked(true);
+    };
+    checkSession();
+  }, [supabase.auth, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +40,41 @@ export default function UpdatePasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       toast.error('No se pudo actualizar la contraseña. El link puede haber expirado.');
+      setError(error.message);
     } else {
       setDone(true);
       setTimeout(() => router.push('/auth/login'), 2500);
     }
     setLoading(false);
   };
+
+  // Si hay error de sesión, mostramos el mensaje
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="card w-full max-w-md p-8 text-center animate-scale-in">
+          <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
+          <h1 className="font-display text-xl font-bold mb-2">Enlace inválido o expirado</h1>
+          <p className="text-sm text-muted mb-6">{error}</p>
+          <button onClick={() => router.push('/auth/reset-password')} className="btn-primary w-full">
+            Solicitar nuevo enlace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No mostrar nada hasta verificar la sesión
+  if (!sessionChecked) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-sm text-muted">Verificando enlace...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (done) return (
     <div className="flex min-h-[70vh] items-center justify-center px-4">
@@ -69,7 +114,6 @@ export default function UpdatePasswordPage() {
             />
           </div>
 
-          {/* Password strength hint */}
           {password.length > 0 && (
             <div className="space-y-1">
               <div className="flex gap-1">

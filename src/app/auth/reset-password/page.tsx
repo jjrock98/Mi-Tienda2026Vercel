@@ -15,6 +15,7 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // ✅ Usamos la URL exacta que agregaste en Supabase
       redirectTo: `${window.location.origin}/auth/update-password`,
     });
     if (error) {
@@ -31,8 +32,7 @@ export default function ResetPasswordPage() {
         <CheckCircle2 size={48} className="mx-auto mb-4 text-green-500" />
         <h1 className="font-display text-xl font-bold mb-2">¡Email enviado!</h1>
         <p className="text-sm text-muted mb-6">
-          Revisá tu bandeja de entrada. Te mandamos un link para restablecer tu contraseña.
-          Puede tardar unos minutos.
+          Revisá tu bandeja de entrada (y también la carpeta de spam). Te mandamos un link para restablecer tu contraseña.
         </p>
         <Link href="/auth/login" className="btn-primary w-full">
           Volver al inicio de sesión
