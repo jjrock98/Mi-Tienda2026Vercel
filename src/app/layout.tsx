@@ -65,8 +65,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <EmailVerificationBanner />
           <div className="flex min-h-screen flex-col">
             <Navbar />
-            {/* ✅ Padding inferior para evitar que los botones fijos tapen el contenido */}
-            <main className="flex-1 pb-24 md:pb-20 lg:pb-16">
+            {/* ✅ Padding inferior aumentado a pb-32 en móvil (8rem = 128px) para evitar que los botones fijos tapen el contenido */}
+            <main className="flex-1 pb-32 md:pb-20 lg:pb-16">
               {children}
             </main>
             <Footer contactInfo={contactData} />

@@ -18,9 +18,7 @@ export function Footer({ contactInfo }: FooterProps) {
   const direccion = contactInfo?.direccion || '';
 
   return (
-    // ✅ En móvil menos margen superior (mt-8), en desktop el original (mt-16)
-    <footer className="border-t border-border bg-surface-2 mt-8 md:mt-16">
-      {/* ✅ Padding vertical reducido en móvil (py-8), en desktop el original (py-12) */}
+    <footer className="border-t border-border bg-surface-2 mt-8 md:mt-16 pb-24 md:pb-0">
       <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
