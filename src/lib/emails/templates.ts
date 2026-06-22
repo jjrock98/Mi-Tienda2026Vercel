@@ -20,8 +20,14 @@ function base(title: string, body: string): string {
 </table></td></tr></table></body></html>`;
 }
 
-// ─── Confirmación de orden ────────────────────────────────────────────────────
-export function orderConfirmationHtml(order: Order): string {
+// ─── Confirmación de orden (PERSONALIZADA) ──────────────────────────────────
+export function orderConfirmationHtml(
+  order: Order,
+  tipoEntrega: 'envio' | 'retiro',
+  metodoPago: 'mercadopago' | 'transferencia',
+  bankInfo?: { titular: string; cbu: string; alias: string; banco: string } | null,
+  locationInfo?: { direccion: string; horario: string; mapaUrl: string } | null
+): string {
   const itemRows = (order.order_items ?? []).map((item) => `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">
@@ -30,6 +36,72 @@ export function orderConfirmationHtml(order: Order): string {
       <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:14px;text-align:right;font-weight:600;">${formatARS(item.subtotal)}</td>
     </tr>`).join('');
 
+  // ── Bloque de pago ──
+  let pagoHtml = '';
+  if (metodoPago === 'transferencia') {
+    if (bankInfo) {
+      pagoHtml = `
+        <div style="background:#f0f4ff;border-radius:10px;padding:16px;margin:20px 0;">
+          <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1a1a2e;">💳 Datos de transferencia</p>
+          <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Titular:</strong> ${bankInfo.titular || 'No especificado'}</p>
+          <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>CBU:</strong> ${bankInfo.cbu || 'No especificado'}</p>
+          <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Alias:</strong> ${bankInfo.alias || 'No especificado'}</p>
+          <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Banco:</strong> ${bankInfo.banco || 'No especificado'}</p>
+          <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">⚠️ Envía el comprobante de transferencia para confirmar tu pago.</p>
+        </div>
+      `;
+    } else {
+      pagoHtml = `
+        <div style="background:#f0f4ff;border-radius:10px;padding:16px;margin:20px 0;">
+          <p style="margin:0;font-size:13px;color:#374151;">📌 Realiza una transferencia bancaria. Te enviaremos los datos por separado.</p>
+        </div>
+      `;
+    }
+  } else {
+    // Mercado Pago
+    pagoHtml = `
+      <div style="background:#d4edda;border-radius:10px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#155724;">✅ Pago procesado</p>
+        <p style="margin:0;font-size:13px;color:#155724;">Tu pago se realizó correctamente a través de Mercado Pago.</p>
+      </div>
+    `;
+  }
+
+  // ── Bloque de entrega (con código de retiro) ──
+  let entregaHtml = '';
+  if (tipoEntrega === 'retiro') {
+    const direccion = locationInfo?.direccion ?? 'Dirección no especificada';
+    const horario = locationInfo?.horario ?? 'Horario no especificado';
+    const mapaUrl = locationInfo?.mapaUrl ?? '#';
+    const codigoRetiro = order.codigo_retiro ?? '---';
+
+    entregaHtml = `
+      <div style="background:#fdf8f0;border:1px solid #fde68a;border-radius:10px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1a1a2e;">📍 Retiro en local</p>
+        <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Dirección:</strong> ${direccion}</p>
+        <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Horario de atención:</strong> ${horario}</p>
+        <div style="background:#fff;border:2px dashed #d98e1e;border-radius:8px;padding:12px;margin:12px 0;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Código de retiro</p>
+          <p style="margin:4px 0 0;font-size:24px;font-weight:900;color:#1a1a2e;font-family:monospace;letter-spacing:2px;">${codigoRetiro}</p>
+        </div>
+        <p style="margin:10px 0 0;">
+          <a href="${mapaUrl}" target="_blank" style="display:inline-block;background:#d98e1e;color:#fff;text-decoration:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;">Ver en Google Maps</a>
+        </p>
+        <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">📌 Presentate con tu DNI y este código para retirar tu pedido.</p>
+      </div>
+    `;
+  } else {
+    entregaHtml = `
+      <div style="background:#e7f3ff;border-radius:10px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1a1a2e;">🚚 Envío a domicilio</p>
+        <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Dirección:</strong> ${order.direccion}, ${order.ciudad} (CP: ${order.codigo_postal})</p>
+        <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Teléfono:</strong> ${order.telefono || 'No especificado'}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">📦 El tiempo estimado de entrega es de <strong>2 a 5 días hábiles</strong>.</p>
+      </div>
+    `;
+  }
+
+  // ── Cuerpo del correo ──
   const body = `
     <h1 style="margin:0 0 6px;font-size:24px;font-weight:800;color:#111827;">¡Gracias por tu compra!</h1>
     <p style="margin:0 0 24px;color:#6b7280;font-size:15px;">Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido fue confirmado.</p>
@@ -43,7 +115,12 @@ export function orderConfirmationHtml(order: Order): string {
       <tr><td style="padding:5px 0;font-size:14px;color:#6b7280;">Envío</td><td style="text-align:right;font-size:14px;">${formatARS(order.costo_envio)}</td></tr>
       <tr><td style="padding:10px 0 0;font-size:16px;font-weight:700;border-top:2px solid #f3f4f6;">Total</td><td style="padding:10px 0 0;font-size:18px;font-weight:800;color:${BRAND_COLOR};text-align:right;border-top:2px solid #f3f4f6;">${formatARS(order.total)}</td></tr>
     </table>
-    <div style="text-align:center;"><a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a></div>`;
+    ${pagoHtml}
+    ${entregaHtml}
+    <div style="text-align:center;margin-top:20px;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a>
+    </div>
+  `;
 
   return base(`Pedido #${order.id.slice(0,8).toUpperCase()} confirmado`, body);
 }
@@ -143,9 +220,7 @@ export function cashPaymentPendingHtml(order: Order): string {
   return base(`Cupón generado — Pedido #${orderNumber}`, body);
 }
 
-// ─────────────────── NUEVAS PLANTILLAS ESPECÍFICAS ──────────────────────────
-
-// 1. Pago acreditado (cliente)
+// ─── Pago acreditado (cliente) ──────────────────────────────────────────────
 export function paymentConfirmedHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -168,7 +243,7 @@ export function paymentConfirmedHtml(order: Order): string {
   return base('Pago confirmado', body);
 }
 
-// 2. Pedido en preparación (cliente)
+// ─── Pedido en preparación (cliente) ────────────────────────────────────────
 export function orderProcessingHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -191,7 +266,7 @@ export function orderProcessingHtml(order: Order): string {
   return base('Pedido en preparación', body);
 }
 
-// 3. Pedido enviado (cliente, con tracking opcional)
+// ─── Pedido enviado (cliente) ────────────────────────────────────────────────
 export function orderShippedHtml(order: Order, trackingNumber?: string): string {
   const trackingHtml = trackingNumber ? `
     <p style="margin:6px 0 0;font-size:14px;font-weight:600;color:#111827;">📦 Número de seguimiento: ${trackingNumber}</p>
@@ -219,7 +294,7 @@ export function orderShippedHtml(order: Order, trackingNumber?: string): string 
   return base('Pedido enviado', body);
 }
 
-// 4. Pedido entregado (cliente)
+// ─── Pedido entregado (cliente) ──────────────────────────────────────────────
 export function orderDeliveredHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -243,7 +318,7 @@ export function orderDeliveredHtml(order: Order): string {
   return base('Pedido entregado', body);
 }
 
-// 5. Pedido cancelado (cliente)
+// ─── Pedido cancelado (cliente) ──────────────────────────────────────────────
 export function orderCancelledHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -266,7 +341,7 @@ export function orderCancelledHtml(order: Order): string {
   return base('Pedido cancelado', body);
 }
 
-// 6. Reembolso (cliente)
+// ─── Reembolso (cliente) ─────────────────────────────────────────────────────
 export function refundHtml(order: Order, reason: string): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -290,7 +365,7 @@ export function refundHtml(order: Order, reason: string): string {
   return base('Reembolso procesado', body);
 }
 
-// 7. Recordatorio de pago (cliente)
+// ─── Recordatorio de pago (cliente) ──────────────────────────────────────────
 export function paymentReminderHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -314,9 +389,7 @@ export function paymentReminderHtml(order: Order): string {
   return base('Recordatorio de pago', body);
 }
 
-// ─────────────────── NOTIFICACIONES AL ADMINISTRADOR ─────────────────────────
-
-// 8. Nuevo pedido (admin)
+// ─── ADMIN: Nuevo pedido ──────────────────────────────────────────────────────
 export function adminNewOrderHtml(order: Order): string {
   const itemsList = (order.order_items ?? []).map(item =>
     `- ${item.nombre_snap} (${item.tipo_pack === 'media_docena' ? 'Media docena' : 'Docena'} x ${item.cantidad_packs}) - ${formatARS(item.subtotal)}`
@@ -342,7 +415,7 @@ export function adminNewOrderHtml(order: Order): string {
   return base(`📦 Nuevo pedido #${order.id.slice(0,8).toUpperCase()}`, body);
 }
 
-// 9. Pago confirmado (admin)
+// ─── ADMIN: Pago confirmado ──────────────────────────────────────────────────
 export function adminPaymentConfirmedHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -360,7 +433,7 @@ export function adminPaymentConfirmedHtml(order: Order): string {
   return base('Pago confirmado (admin)', body);
 }
 
-// 10. Pedido cancelado (admin)
+// ─── ADMIN: Pedido cancelado ─────────────────────────────────────────────────
 export function adminOrderCancelledHtml(order: Order): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -378,7 +451,7 @@ export function adminOrderCancelledHtml(order: Order): string {
   return base('Pedido cancelado (admin)', body);
 }
 
-// 11. Reembolso (admin)
+// ─── ADMIN: Reembolso ────────────────────────────────────────────────────────
 export function adminRefundHtml(order: Order, reason: string): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">
@@ -397,9 +470,7 @@ export function adminRefundHtml(order: Order, reason: string): string {
   return base('Reembolso procesado (admin)', body);
 }
 
-// ─── NUEVO: Cambio de estado (admin) ──────────────────────────────────────
-
-// 12. Cambio de estado (admin)
+// ─── ADMIN: Cambio de estado ─────────────────────────────────────────────────
 export function adminOrderStatusHtml(order: Order, oldStatus: string, newStatus: string): string {
   const body = `
     <div style="text-align:center;margin-bottom:20px;">

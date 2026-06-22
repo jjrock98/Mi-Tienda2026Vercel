@@ -16,11 +16,9 @@ export async function generateMetadata({ params }: Props) {
 }
 
 // 'pendiente_pago' se trata como sub-estado de 'pendiente' en el timeline
-// (cupón de efectivo generado, esperando acreditación)
 const ALL_STEPS    = ['pendiente','pagado','procesando','enviado','entregado'];
 const RETIRO_STEPS = ['pendiente','pagado','procesando','entregado'];
 
-/** Mapea 'pendiente_pago' al paso visual de 'pendiente' para el timeline */
 function normalizeStepEstado(estado: string): string {
   return estado === 'pendiente_pago' ? 'pendiente' : estado;
 }
@@ -107,7 +105,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* ✅ Cupón de efectivo pendiente de pago */}
+      {/* Cupón de efectivo pendiente de pago */}
       {o.estado === 'pendiente_pago' && (
         <div className="card border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/10 p-5 mb-5">
           <h2 className="font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-2 mb-3">
@@ -127,7 +125,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* ✅ RETIRO EN LOCAL */}
+      {/* RETIRO EN LOCAL (con código) */}
       {isRetiro && !isCancelled && (
         <div className="card border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/10 p-5 mb-5">
           <h2 className="font-semibold text-green-800 dark:text-green-400 flex items-center gap-2 mb-4">
@@ -144,6 +142,20 @@ export default async function OrderDetailPage({ params }: Props) {
             {contactInfo?.horario
               ? <p>🕐 {contactInfo.horario}</p>
               : <p>🕐 Lunes a viernes de 9 a 18hs</p>}
+
+            {/* 👇 Código de retiro */}
+            {o.codigo_retiro && (
+              <div className="bg-white dark:bg-zinc-800 border-2 border-dashed border-green-400 dark:border-green-600 rounded-lg p-3 my-2 text-center">
+                <p className="text-xs uppercase text-gray-500 dark:text-gray-400 tracking-wider">Código de retiro</p>
+                <p className="text-2xl font-mono font-bold text-green-700 dark:text-green-400 tracking-widest">
+                  {o.codigo_retiro}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Presentá este código al retirar tu pedido.
+                </p>
+              </div>
+            )}
+
             {(o.estado === 'pagado' || o.estado === 'procesando') && (
               <p className="mt-2 font-medium">⏳ Tu pedido se está preparando. Te avisaremos cuando esté listo.</p>
             )}

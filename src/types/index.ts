@@ -57,8 +57,8 @@ export interface Order {
   // MP
   mp_preference_id: string | null;
   mp_payment_id: string | null;
-  mp_status_detail: string | null;   // ← NEW: 'waiting_for_payment', 'accredited', etc.
-  fecha_pago: string | null;          // ← NEW: ISO timestamp cuando MP confirmó el pago
+  mp_status_detail: string | null;
+  fecha_pago: string | null;
   // Transferencia
   comprobante_url: string | null;
   comprobante_revisado: boolean;
@@ -71,6 +71,8 @@ export interface Order {
   stock_descontado: boolean;
   created_at: string;
   updated_at: string;
+  // 👇 NUEVO: Código único para retiro en local
+  codigo_retiro?: string | null;
   order_items?: OrderItem[];
 }
 

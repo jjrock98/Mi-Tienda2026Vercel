@@ -18,6 +18,7 @@ import {
   adminRefundHtml,
   adminOrderStatusHtml,
 } from './emails/templates';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // ─── Configuración de correos ────────────────────────────────────────────────
 const FROM  = `${process.env.RESEND_FROM_NAME ?? 'Mi Tienda'} <${process.env.RESEND_FROM_EMAIL ?? 'noreply@mitienda.com'}>`;
@@ -37,12 +38,59 @@ function getResendClient(): Resend {
 
 export async function sendOrderConfirmationEmail(order: Order) {
   console.log(`📤 Enviando confirmación de pedido #${order.id.slice(0,8).toUpperCase()} a ${order.email}`);
+
+  const admin = createAdminClient();
+  let bankInfo = null;
+  let locationInfo = null;
+
+  // Obtener datos bancarios
+  try {
+    const { data: bankData } = await admin
+      .from('bank_info')
+      .select('titular, cbu, alias, banco')
+      .single();
+
+    if (bankData) {
+      bankInfo = {
+        titular: bankData.titular,
+        cbu: bankData.cbu,
+        alias: bankData.alias,
+        banco: bankData.banco,
+      };
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudieron obtener datos bancarios:', error);
+  }
+
+  // Obtener datos de ubicación
+  try {
+    const { data: locationData } = await admin
+      .from('location_info')
+      .select('direccion, horario, mapa_iframe_url')
+      .single();
+
+    if (locationData) {
+      locationInfo = {
+        direccion: locationData.direccion,
+        horario: locationData.horario,
+        mapaUrl: locationData.mapa_iframe_url || '#',
+      };
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudieron obtener datos de ubicación:', error);
+  }
+
+  const tipoEntrega = order.tipo_entrega; // 'envio' o 'retiro'
+  const metodoPago = order.metodo_pago;   // 'mercadopago' o 'transferencia'
+
+  const html = orderConfirmationHtml(order, tipoEntrega, metodoPago, bankInfo, locationInfo);
+
   try {
     const result = await getResendClient().emails.send({
       from:    FROM,
       to:      order.email,
       subject: `Pedido #${order.id.slice(0, 8).toUpperCase()} confirmado ✓`,
-      html:    orderConfirmationHtml(order),
+      html,
     });
     console.log(`✅ Confirmación enviada a ${order.email}`, result);
     return result;

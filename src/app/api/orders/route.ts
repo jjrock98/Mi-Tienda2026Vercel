@@ -9,6 +9,7 @@ import { createOrderSchema, parseBody } from '@/lib/validations';
 import { rateLimiters } from '@/lib/rateLimit';
 import type { TipoPack } from '@/types';
 import { MP_COMMISSION } from '@/lib/constants';
+import { randomBytes } from 'crypto'; // 👈 NUEVO
 
 // ── Tipos internos ────────────────────────────────────────────────────────────
 interface DBProduct {
@@ -36,6 +37,23 @@ interface ItemWithProduct {
     nombre_snap:   string;
     imagen_snap:   string | null;
   };
+}
+
+// ── Generación segura de código de retiro ──────────────────────────────────
+function generarCodigoRetiro(): string {
+  // 6 bytes = 48 bits, suficientes para 8 caracteres
+  const bytes = randomBytes(6);
+  const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excluye O,0,I,1
+  let codigo = '';
+  let valor = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    valor = (valor << 8) + bytes[i];
+  }
+  for (let i = 0; i < 8; i++) {
+    codigo += caracteres[valor % caracteres.length];
+    valor = Math.floor(valor / caracteres.length);
+  }
+  return codigo;
 }
 
 export async function POST(req: NextRequest) {
@@ -125,7 +143,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Insertar orden ──
+    // ── Insertar orden (con código de retiro) ──
+    const codigoRetiro = formData.tipo_entrega === 'retiro' ? generarCodigoRetiro() : null;
+
     const { data: order, error: orderErr } = await admin.from('orders').insert({
       user_id:       user.id,
       email:         formData.email,
@@ -139,8 +159,9 @@ export async function POST(req: NextRequest) {
       tipo_entrega:  formData.tipo_entrega,
       subtotal,
       costo_envio,
-      total: totalEsperado, // Guardamos el total validado
+      total: totalEsperado,
       estado: 'pendiente',
+      codigo_retiro: codigoRetiro, // 👈 NUEVO
     }).select().single();
 
     if (orderErr) throw orderErr;
