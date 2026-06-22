@@ -396,3 +396,32 @@ export function adminRefundHtml(order: Order, reason: string): string {
     </div>`;
   return base('Reembolso procesado (admin)', body);
 }
+
+// ─── NUEVO: Cambio de estado (admin) ──────────────────────────────────────
+
+// 12. Cambio de estado (admin)
+export function adminOrderStatusHtml(order: Order, oldStatus: string, newStatus: string): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">📦</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Cambio de estado del pedido</h1>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>Pedido #${order.id.slice(0,8).toUpperCase()}</strong></p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Cliente:</strong> ${order.nombre} (${order.email})</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Total:</strong> ${formatARS(order.total)}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;">
+        <strong>Estado anterior:</strong> ${ORDER_STATUS_LABELS[oldStatus as keyof typeof ORDER_STATUS_LABELS] || oldStatus}
+      </p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;">
+        <strong>Nuevo estado:</strong> ${ORDER_STATUS_LABELS[newStatus as keyof typeof ORDER_STATUS_LABELS] || newStatus}
+      </p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 24px;line-height:1.6;">
+      El pedido ha cambiado de estado. Verificá los detalles en el panel de administración.
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/admin/pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;">Ver pedido</a>
+    </div>`;
+  return base('Cambio de estado (admin)', body);
+}

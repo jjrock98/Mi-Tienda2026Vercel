@@ -1,61 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendOrderStatusEmail } from '@/lib/email';
+import {
+  sendPaymentConfirmedEmail,
+  sendAdminPaymentConfirmedEmail,
+} from '@/lib/email';
 
-export async function POST(req: NextRequest) {
+async function verifyAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  if (!user) return null;
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+  return profile?.rol === 'admin' ? user : null;
+}
 
-  const { data: profile } = await supabase
-    .from('profiles').select('rol').eq('id', user.id).single();
-  if (profile?.rol !== 'admin') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+export async function POST(req: NextRequest) {
+  const adminUser = await verifyAdmin();
+  if (!adminUser) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  // ✅ Read orderId from body (not from URL params)
-  const body = await req.json().catch(() => ({}));
-  const orderId = body.id ?? body.orderId;
+  const body = await req.json();
+  const orderId = body.orderId ?? body.id;
+
   if (!orderId) return NextResponse.json({ error: 'orderId requerido' }, { status: 400 });
 
   const admin = createAdminClient();
 
-  const { data: order } = await admin
+  // Obtener el pedido actual
+  const { data: currentOrder } = await admin
     .from('orders')
-    .select('id, metodo_pago, comprobante_url, estado, stock_descontado')
+    .select('*, order_items(*)')
     .eq('id', orderId)
     .single();
 
-  if (!order) return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
-
-  if (order.metodo_pago !== 'transferencia') {
-    return NextResponse.json({ error: 'Solo se pueden aprobar pagos por transferencia' }, { status: 400 });
-  }
-  if (!order.comprobante_url) {
-    return NextResponse.json({ error: 'El cliente aún no subió el comprobante' }, { status: 400 });
-  }
-  if (order.stock_descontado) {
-    return NextResponse.json({ error: 'El stock ya fue descontado para este pedido' }, { status: 409 });
+  if (!currentOrder) {
+    return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
   }
 
-  // Atomic stock deduction via DB function
-  const { data: result } = await admin.rpc('descontar_stock_seguro', { p_order_id: orderId });
-
-  if (!result?.success) {
-    return NextResponse.json({
-      error: result?.error || (result?.errors as string[] | undefined)?.join(', ') || 'Error al descontar stock',
-    }, { status: 409 });
+  if (currentOrder.estado === 'pagado') {
+    return NextResponse.json({ error: 'El pedido ya está pagado' }, { status: 409 });
   }
 
-  // Mark comprobante as reviewed
-  await admin.from('orders').update({
-    comprobante_revisado: true,
-    updated_at: new Date().toISOString(),
-  }).eq('id', orderId);
+  // Actualizar a pagado
+  const { data: order, error } = await admin
+    .from('orders')
+    .update({
+      estado: 'pagado',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+    .select('*, order_items(*)')
+    .single();
 
-  // Send email to customer
-  const { data: fullOrder } = await admin
-    .from('orders').select('*, order_items(*)').eq('id', orderId).single();
-  if (fullOrder) sendOrderStatusEmail(fullOrder).catch(console.error);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, message: 'Pago aprobado y stock descontado' });
+  // Enviar correos
+  if (order) {
+    try {
+      await sendPaymentConfirmedEmail(order);
+      await sendAdminPaymentConfirmedEmail(order);
+    } catch (err) {
+      console.error('Error enviando correos de aprobación:', err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, data: order });
 }

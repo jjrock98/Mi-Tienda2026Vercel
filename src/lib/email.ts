@@ -5,7 +5,7 @@ import {
   orderStatusHtml,
   contactNotificationHtml,
   cashPaymentPendingHtml,
-  // Nuevas plantillas
+  // Nuevas plantillas cliente
   paymentConfirmedHtml,
   orderProcessingHtml,
   orderShippedHtml,
@@ -18,6 +18,7 @@ import {
   adminPaymentConfirmedHtml,
   adminOrderCancelledHtml,
   adminRefundHtml,
+  adminOrderStatusHtml, // 👈 NUEVA
 } from './emails/templates';
 
 const FROM  = `${process.env.RESEND_FROM_NAME ?? 'Mi Tienda'} <${process.env.RESEND_FROM_EMAIL ?? 'noreply@mitienda.com'}>`;
@@ -34,7 +35,7 @@ function getResendClient(): Resend {
 
 // ─── Cliente ──────────────────────────────────────────────────────────────────
 
-// 1. Confirmación de pedido (ya existente)
+// 1. Confirmación de pedido
 export async function sendOrderConfirmationEmail(order: Order) {
   return getResendClient().emails.send({
     from:    FROM,
@@ -44,7 +45,7 @@ export async function sendOrderConfirmationEmail(order: Order) {
   });
 }
 
-// 2. Estado genérico (ya existente)
+// 2. Estado genérico (cliente)
 export async function sendOrderStatusEmail(order: Order) {
   return getResendClient().emails.send({
     from:    FROM,
@@ -54,7 +55,7 @@ export async function sendOrderStatusEmail(order: Order) {
   });
 }
 
-// 3. Contacto (ya existente)
+// 3. Contacto (cliente y admin)
 export async function sendContactMessageEmail(
   nombre: string, email: string, asunto: string, mensaje: string
 ) {
@@ -67,7 +68,7 @@ export async function sendContactMessageEmail(
   });
 }
 
-// 4. Cupón de pago en efectivo (ya existente)
+// 4. Cupón de pago en efectivo (cliente)
 export async function sendCashPaymentPendingEmail(order: Order) {
   return getResendClient().emails.send({
     from:    FROM,
@@ -76,8 +77,6 @@ export async function sendCashPaymentPendingEmail(order: Order) {
     html:    cashPaymentPendingHtml(order),
   });
 }
-
-// ─── NUEVAS FUNCIONES ────────────────────────────────────────────────────────
 
 // 5. Pago acreditado (cliente)
 export async function sendPaymentConfirmedEmail(order: Order) {
@@ -149,7 +148,7 @@ export async function sendPaymentReminderEmail(order: Order) {
   });
 }
 
-// ─── ADMINISTRADOR ────────────────────────────────────────────────────────────
+// ─── Administrador ────────────────────────────────────────────────────────────
 
 // 12. Nuevo pedido (admin)
 export async function sendAdminNewOrderEmail(order: Order) {
@@ -188,5 +187,15 @@ export async function sendAdminRefundEmail(order: Order, reason: string) {
     to:      ADMIN,
     subject: `💳 Reembolso procesado – Pedido #${order.id.slice(0, 8).toUpperCase()}`,
     html:    adminRefundHtml(order, reason),
+  });
+}
+
+// 16. 🔥 NUEVO: Cambio de estado (admin) – se ejecuta para cualquier otro cambio
+export async function sendAdminOrderStatusEmail(order: Order, oldStatus: string, newStatus: string) {
+  return getResendClient().emails.send({
+    from:    FROM,
+    to:      ADMIN,
+    subject: `📦 Pedido #${order.id.slice(0, 8).toUpperCase()} cambió a "${newStatus}"`,
+    html:    adminOrderStatusHtml(order, oldStatus, newStatus),
   });
 }
