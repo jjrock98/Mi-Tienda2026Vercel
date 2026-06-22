@@ -38,6 +38,12 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', locale: 'es_AR', siteName: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
   twitter: { card: 'summary_large_image' },
   robots: { index: true, follow: true },
+  // ✅ FAVICON EXPLÍCITO usando el icono PWA que ya tienes
+  icons: {
+    icon: '/icons/icon-192.png',
+    shortcut: '/icons/icon-192.png',
+    apple: '/icons/icon-192.png',
+  },
 };
 
 export const viewport: Viewport = {
@@ -65,7 +71,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <EmailVerificationBanner />
           <div className="flex min-h-screen flex-col">
             <Navbar />
-            {/* ✅ Padding inferior aumentado a pb-32 en móvil (8rem = 128px) para evitar que los botones fijos tapen el contenido */}
             <main className="flex-1 pb-32 md:pb-20 lg:pb-16">
               {children}
             </main>
