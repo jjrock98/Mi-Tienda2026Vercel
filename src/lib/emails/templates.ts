@@ -21,7 +21,6 @@ function base(title: string, body: string): string {
 }
 
 // ─── Confirmación de orden ────────────────────────────────────────────────────
-
 export function orderConfirmationHtml(order: Order): string {
   const itemRows = (order.order_items ?? []).map((item) => `
     <tr>
@@ -49,8 +48,7 @@ export function orderConfirmationHtml(order: Order): string {
   return base(`Pedido #${order.id.slice(0,8).toUpperCase()} confirmado`, body);
 }
 
-// ─── Estado actualizado ───────────────────────────────────────────────────────
-
+// ─── Estado actualizado (genérico) ──────────────────────────────────────────
 export function orderStatusHtml(order: Order): string {
   const msgs: Record<string, string> = {
     pagado: 'Tu pago fue confirmado. Estamos preparando tu pedido.',
@@ -76,7 +74,6 @@ export function orderStatusHtml(order: Order): string {
 }
 
 // ─── Contacto ─────────────────────────────────────────────────────────────────
-
 export function contactNotificationHtml(nombre: string, email: string, asunto: string, mensaje: string): string {
   const body = `
     <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Nuevo mensaje de contacto</h1>
@@ -93,8 +90,7 @@ export function contactNotificationHtml(nombre: string, email: string, asunto: s
   return base(`Nuevo mensaje: ${asunto || nombre}`, body);
 }
 
-// ─── NUEVO: Cupón de pago en efectivo ────────────────────────────────────────
-
+// ─── Cupón de pago en efectivo ──────────────────────────────────────────────
 export function cashPaymentPendingHtml(order: Order): string {
   const expiryDate  = getCashCouponExpiry(order.created_at);
   const orderNumber = order.id.slice(0, 8).toUpperCase();
@@ -145,4 +141,258 @@ export function cashPaymentPendingHtml(order: Order): string {
     </div>`;
 
   return base(`Cupón generado — Pedido #${orderNumber}`, body);
+}
+
+// ─────────────────── NUEVAS PLANTILLAS ESPECÍFICAS ──────────────────────────
+
+// 1. Pago acreditado (cliente)
+export function paymentConfirmedHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">💰</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">¡Pago confirmado!</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, el pago de tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> fue acreditado.
+    </p>
+    <div style="background:#d4edda;border-left:4px solid #28a745;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#155724;"><strong>✅ Monto:</strong> ${formatARS(order.total)}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#155724;"><strong>📅 Fecha:</strong> ${new Date(order.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      Ya estamos preparando tu pedido para el envío. En breve recibirás una notificación con el número de seguimiento.
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a>
+    </div>`;
+  return base('Pago confirmado', body);
+}
+
+// 2. Pedido en preparación (cliente)
+export function orderProcessingHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">📦</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Tu pedido está en preparación</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> ya está siendo armado por nuestro equipo.
+    </p>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>📦 Estado:</strong> Procesando</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      Te avisaremos cuando sea enviado. El tiempo estimado de entrega es de <strong>2 a 5 días hábiles</strong>.<br>
+      ¿Necesitas modificar algo? Respondé a este correo lo antes posible.
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a>
+    </div>`;
+  return base('Pedido en preparación', body);
+}
+
+// 3. Pedido enviado (cliente, con tracking opcional)
+export function orderShippedHtml(order: Order, trackingNumber?: string): string {
+  const trackingHtml = trackingNumber ? `
+    <p style="margin:6px 0 0;font-size:14px;font-weight:600;color:#111827;">📦 Número de seguimiento: ${trackingNumber}</p>
+  ` : '';
+
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">🚚</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">¡Tu pedido está en camino!</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> fue despachado.
+    </p>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>🚚 Estado:</strong> Enviado</p>
+      ${trackingHtml}
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      El tiempo estimado de entrega es de <strong>2 a 5 días hábiles</strong>.<br>
+      Si no recibís tu pedido en el plazo estimado, contactanos a <a href="mailto:soporte@mc-importados.xyz">soporte@mc-importados.xyz</a>.
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a>
+    </div>`;
+  return base('Pedido enviado', body);
+}
+
+// 4. Pedido entregado (cliente)
+export function orderDeliveredHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">📬</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">¡Tu pedido fue entregado!</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> fue entregado exitosamente.
+    </p>
+    <div style="background:#d4edda;border-left:4px solid #28a745;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#155724;"><strong>✅ Estado:</strong> Entregado</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#155724;"><strong>📅 Fecha:</strong> ${new Date(order.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      ¡Esperamos que disfrutes tu compra! Si tenés algún inconveniente, no dudes en contactarnos.<br>
+      Te invitamos a dejar una reseña de los productos que adquiriste. ¡Tu opinión nos ayuda a mejorar!
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mi pedido</a>
+    </div>`;
+  return base('Pedido entregado', body);
+}
+
+// 5. Pedido cancelado (cliente)
+export function orderCancelledHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">❌</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Pedido cancelado</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> fue cancelado.
+    </p>
+    <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#856404;"><strong>⚠️ Motivo:</strong> ${order.rejection_reason || 'No especificado'}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      Si no solicitaste esta cancelación, por favor <a href="mailto:soporte@mc-importados.xyz">contáctanos</a> inmediatamente.<br>
+      Si ya realizaste el pago, el reembolso se procesará en un plazo de <strong>5 a 10 días hábiles</strong> (según el método de pago).
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mis pedidos</a>
+    </div>`;
+  return base('Pedido cancelado', body);
+}
+
+// 6. Reembolso (cliente)
+export function refundHtml(order: Order, reason: string): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">💳</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Reembolso procesado</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, hemos procesado el reembolso de tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong>.
+    </p>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>💰 Monto reembolsado:</strong> ${formatARS(order.total)}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>📝 Motivo:</strong> ${reason}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 28px;line-height:1.6;">
+      El reembolso se verá reflejado en tu cuenta en un plazo de <strong>5 a 10 días hábiles</strong> (según tu banco o método de pago).<br>
+      Si no recibís el reembolso en ese plazo, contactanos a <a href="mailto:soporte@mc-importados.xyz">soporte@mc-importados.xyz</a>.
+    </p>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/mis-pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Ver mis pedidos</a>
+    </div>`;
+  return base('Reembolso procesado', body);
+}
+
+// 7. Recordatorio de pago (cliente)
+export function paymentReminderHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">⏳</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Recordatorio de pago</h1>
+    <p style="margin:0 0 24px;color:#6b7280;font-size:15px;text-align:center;">
+      Hola <strong style="color:#374151;">${order.nombre}</strong>, tu pedido <strong>#${order.id.slice(0,8).toUpperCase()}</strong> aún no ha sido pagado.
+    </p>
+    <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#856404;"><strong>⏳ Estado:</strong> Pendiente de pago</p>
+      <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#856404;"><strong>💰 Total a pagar:</strong> ${formatARS(order.total)}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 24px;line-height:1.6;">
+      Para completar tu compra, realizá el pago a través del siguiente enlace:
+    </p>
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${APP_URL}/pago/${order.id}" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;">Pagar ahora</a>
+    </div>
+    <p style="font-size:13px;color:#6b7280;margin:0;">Si ya realizaste el pago, <strong>ignorá este mensaje</strong>.</p>`;
+  return base('Recordatorio de pago', body);
+}
+
+// ─────────────────── NOTIFICACIONES AL ADMINISTRADOR ─────────────────────────
+
+// 8. Nuevo pedido (admin)
+export function adminNewOrderHtml(order: Order): string {
+  const itemsList = (order.order_items ?? []).map(item =>
+    `- ${item.nombre_snap} (${item.tipo_pack === 'media_docena' ? 'Media docena' : 'Docena'} x ${item.cantidad_packs}) - ${formatARS(item.subtotal)}`
+  ).join('\n');
+
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">📦</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">¡Nuevo pedido recibido!</h1>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>Pedido #${order.id.slice(0,8).toUpperCase()}</strong></p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Cliente:</strong> ${order.nombre} (${order.email})</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Total:</strong> ${formatARS(order.total)}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Método de pago:</strong> ${order.metodo_pago === 'mercadopago' ? 'Mercado Pago' : 'Transferencia'}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Entrega:</strong> ${order.tipo_entrega === 'envio' ? 'Envío a domicilio' : 'Retiro en local'}</p>
+    </div>
+    <p style="font-size:15px;color:#374151;margin:0 0 12px;"><strong>Productos:</strong></p>
+    <pre style="background:#f9fafb;padding:12px 16px;border-radius:8px;font-size:13px;color:#374151;white-space:pre-wrap;margin-bottom:24px;">${itemsList}</pre>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/admin/pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;">Gestionar pedido</a>
+    </div>`;
+  return base(`📦 Nuevo pedido #${order.id.slice(0,8).toUpperCase()}`, body);
+}
+
+// 9. Pago confirmado (admin)
+export function adminPaymentConfirmedHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">💰</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Pago confirmado</h1>
+    <div style="background:#d4edda;border-left:4px solid #28a745;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#155724;"><strong>Pedido #${order.id.slice(0,8).toUpperCase()}</strong></p>
+      <p style="margin:4px 0 0;font-size:13px;color:#155724;"><strong>Cliente:</strong> ${order.nombre}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#155724;"><strong>Total:</strong> ${formatARS(order.total)}</p>
+    </div>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/admin/pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;">Ver pedido</a>
+    </div>`;
+  return base('Pago confirmado (admin)', body);
+}
+
+// 10. Pedido cancelado (admin)
+export function adminOrderCancelledHtml(order: Order): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">❌</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Pedido cancelado</h1>
+    <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#856404;"><strong>Pedido #${order.id.slice(0,8).toUpperCase()}</strong></p>
+      <p style="margin:4px 0 0;font-size:13px;color:#856404;"><strong>Cliente:</strong> ${order.nombre}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#856404;"><strong>Motivo:</strong> ${order.rejection_reason || 'No especificado'}</p>
+    </div>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/admin/pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;">Ver pedido</a>
+    </div>`;
+  return base('Pedido cancelado (admin)', body);
+}
+
+// 11. Reembolso (admin)
+export function adminRefundHtml(order: Order, reason: string): string {
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:42px;">💳</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#111827;text-align:center;">Reembolso procesado</h1>
+    <div style="background:#e7f3ff;border-left:4px solid #1a1a2e;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#1a1a2e;"><strong>Pedido #${order.id.slice(0,8).toUpperCase()}</strong></p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Cliente:</strong> ${order.nombre}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Monto:</strong> ${formatARS(order.total)}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#1a1a2e;"><strong>Motivo:</strong> ${reason}</p>
+    </div>
+    <div style="text-align:center;">
+      <a href="${APP_URL}/admin/pedidos" style="display:inline-block;background:${BRAND_COLOR};color:#fff;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;">Ver pedido</a>
+    </div>`;
+  return base('Reembolso procesado (admin)', body);
 }

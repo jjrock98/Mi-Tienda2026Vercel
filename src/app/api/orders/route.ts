@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { 
+  sendOrderConfirmationEmail,
+  sendAdminNewOrderEmail,
+} from '@/lib/email';
 import { createOrderSchema, parseBody } from '@/lib/validations';
 import { rateLimiters } from '@/lib/rateLimit';
 import type { TipoPack } from '@/types';
@@ -150,14 +153,20 @@ export async function POST(req: NextRequest) {
     );
     if (itemsErr) throw itemsErr;
 
-    // Email no bloqueante
+    // ── Email no bloqueante ──
     admin
       .from('orders')
       .select('*, order_items(*)')
       .eq('id', order.id)
       .single()
       .then(({ data }) => {
-        if (data) sendOrderConfirmationEmail(data as Parameters<typeof sendOrderConfirmationEmail>[0]).catch(console.error);
+        if (data) {
+          const fullOrder = data as Parameters<typeof sendOrderConfirmationEmail>[0];
+          // Enviar confirmación al cliente
+          sendOrderConfirmationEmail(fullOrder).catch(console.error);
+          // Enviar notificación al administrador
+          sendAdminNewOrderEmail(fullOrder).catch(console.error);
+        }
       });
 
     return NextResponse.json({ data: order });
