@@ -67,7 +67,7 @@ export function orderConfirmationHtml(
     `;
   }
 
-  // ── Bloque de entrega (con código de retiro) ──
+  // ── Bloque de entrega (con código de retiro solo si pago confirmado) ──
   let entregaHtml = '';
   if (tipoEntrega === 'retiro') {
     const direccion = locationInfo?.direccion ?? 'Dirección no especificada';
@@ -75,19 +75,35 @@ export function orderConfirmationHtml(
     const mapaUrl = locationInfo?.mapaUrl ?? '#';
     const codigoRetiro = order.codigo_retiro ?? '---';
 
+    // ✅ Estados que indican pago confirmado
+    const pagoConfirmado = ['pagado', 'procesando', 'enviado', 'entregado'].includes(order.estado);
+
+    let codigoHtml = '';
+    if (pagoConfirmado && codigoRetiro && !codigoRetiro.includes('undefined')) {
+      codigoHtml = `
+        <div style="background:#fff;border:2px dashed #d98e1e;border-radius:8px;padding:12px;margin:12px 0;text-align:center;">
+          <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Código de retiro</p>
+          <p style="margin:4px 0 0;font-size:24px;font-weight:900;color:#1a1a2e;font-family:monospace;letter-spacing:2px;">${codigoRetiro}</p>
+        </div>
+      `;
+    } else {
+      codigoHtml = `
+        <div style="background:#e7f3ff;border-radius:8px;padding:12px;margin:12px 0;text-align:center;border:1px dashed #1a1a2e;">
+          <p style="margin:0;font-size:13px;color:#1a1a2e;">🔒 El código de retiro estará disponible una vez que se confirme el pago.</p>
+        </div>
+      `;
+    }
+
     entregaHtml = `
       <div style="background:#fdf8f0;border:1px solid #fde68a;border-radius:10px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1a1a2e;">📍 Retiro en local</p>
         <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Dirección:</strong> ${direccion}</p>
         <p style="margin:2px 0;font-size:13px;color:#374151;"><strong>Horario de atención:</strong> ${horario}</p>
-        <div style="background:#fff;border:2px dashed #d98e1e;border-radius:8px;padding:12px;margin:12px 0;text-align:center;">
-          <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Código de retiro</p>
-          <p style="margin:4px 0 0;font-size:24px;font-weight:900;color:#1a1a2e;font-family:monospace;letter-spacing:2px;">${codigoRetiro}</p>
-        </div>
+        ${codigoHtml}
         <p style="margin:10px 0 0;">
           <a href="${mapaUrl}" target="_blank" style="display:inline-block;background:#d98e1e;color:#fff;text-decoration:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;">Ver en Google Maps</a>
         </p>
-        <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">📌 Presentate con tu DNI y este código para retirar tu pedido.</p>
+        ${pagoConfirmado ? `<p style="margin:8px 0 0;font-size:12px;color:#6b7280;">📌 Presentate con tu DNI y este código para retirar tu pedido.</p>` : ''}
       </div>
     `;
   } else {

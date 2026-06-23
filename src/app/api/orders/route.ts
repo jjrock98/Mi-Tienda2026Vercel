@@ -9,7 +9,7 @@ import { createOrderSchema, parseBody } from '@/lib/validations';
 import { rateLimiters } from '@/lib/rateLimit';
 import type { TipoPack } from '@/types';
 import { MP_COMMISSION } from '@/lib/constants';
-import { randomBytes } from 'crypto'; // 👈 NUEVO
+import { randomBytes } from 'crypto';
 
 // ── Tipos internos ────────────────────────────────────────────────────────────
 interface DBProduct {
@@ -39,19 +39,14 @@ interface ItemWithProduct {
   };
 }
 
-// ── Generación segura de código de retiro ──────────────────────────────────
+// ── Generación segura de código de retiro (CORREGIDO) ──────────────────────
 function generarCodigoRetiro(): string {
-  // 6 bytes = 48 bits, suficientes para 8 caracteres
-  const bytes = randomBytes(6);
-  const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excluye O,0,I,1
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = randomBytes(8);
   let codigo = '';
-  let valor = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    valor = (valor << 8) + bytes[i];
-  }
   for (let i = 0; i < 8; i++) {
-    codigo += caracteres[valor % caracteres.length];
-    valor = Math.floor(valor / caracteres.length);
+    const index = bytes[i] % chars.length;
+    codigo += chars[index];
   }
   return codigo;
 }
@@ -88,7 +83,7 @@ export async function POST(req: NextRequest) {
         const unidades = item.cantidad_packs * (item.tipo_pack === 'media_docena' ? 6 : 12);
         if (product.stock_unidades < unidades) {
           throw new Error(
-            `Stock insuficiente para "${product.nombre}": hay ${product.stock_unidades} unidades, necesitás ${unidades}`
+            `Stock insuficiente para "${product.nombre}": hay ${product.stock_unidades} unidades, no tenemos: ${unidades}`
           );
         }
 
@@ -143,8 +138,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Insertar orden (con código de retiro) ──
-    const codigoRetiro = formData.tipo_entrega === 'retiro' ? generarCodigoRetiro() : null;
+    // ── Insertar orden (con código de retiro, con reintentos) ──
+    let codigoRetiro: string | null = null;
+    if (formData.tipo_entrega === 'retiro') {
+      let intentos = 0;
+      while (intentos < 5) {
+        const codigoGenerado = generarCodigoRetiro();
+        // Verificar que no exista ya en la base de datos
+        const { data: existente } = await admin
+          .from('orders')
+          .select('id')
+          .eq('codigo_retiro', codigoGenerado)
+          .maybeSingle();
+        if (!existente) {
+          codigoRetiro = codigoGenerado;
+          break;
+        }
+        intentos++;
+      }
+      // Fallback: si por alguna razón falla la generación única
+      if (!codigoRetiro) {
+        codigoRetiro = Date.now().toString(36).toUpperCase().slice(-8);
+      }
+    }
 
     const { data: order, error: orderErr } = await admin.from('orders').insert({
       user_id:       user.id,
@@ -161,7 +177,7 @@ export async function POST(req: NextRequest) {
       costo_envio,
       total: totalEsperado,
       estado: 'pendiente',
-      codigo_retiro: codigoRetiro, // 👈 NUEVO
+      codigo_retiro: codigoRetiro,
     }).select().single();
 
     if (orderErr) throw orderErr;
@@ -183,9 +199,7 @@ export async function POST(req: NextRequest) {
       .then(({ data }) => {
         if (data) {
           const fullOrder = data as Parameters<typeof sendOrderConfirmationEmail>[0];
-          // Enviar confirmación al cliente
           sendOrderConfirmationEmail(fullOrder).catch(console.error);
-          // Enviar notificación al administrador
           sendAdminNewOrderEmail(fullOrder).catch(console.error);
         }
       });

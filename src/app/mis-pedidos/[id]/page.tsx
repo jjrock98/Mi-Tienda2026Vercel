@@ -15,7 +15,6 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Pedido #${params.id.slice(0,8).toUpperCase()}` };
 }
 
-// 'pendiente_pago' se trata como sub-estado de 'pendiente' en el timeline
 const ALL_STEPS    = ['pendiente','pagado','procesando','enviado','entregado'];
 const RETIRO_STEPS = ['pendiente','pagado','procesando','entregado'];
 
@@ -30,7 +29,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('*, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
+    .select('*, codigo_retiro, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
     .eq('id', params.id).eq('user_id', user.id).single();
 
   if (!order) notFound();
@@ -42,7 +41,9 @@ export default async function OrderDetailPage({ params }: Props) {
   const steps       = isRetiro ? RETIRO_STEPS : ALL_STEPS;
   const currentStep = isCancelled ? -1 : steps.indexOf(normalizeStepEstado(o.estado));
 
-  // Get store location for retiro
+  // ✅ Estados que indican pago confirmado
+  const pagoConfirmado = ['pagado', 'procesando', 'enviado', 'entregado'].includes(o.estado);
+
   const admin = createAdminClient();
   const [{ data: contactInfo }] = await Promise.all([
     admin.from('contact_info').select('direccion,telefono,horario').single(),
@@ -50,6 +51,12 @@ export default async function OrderDetailPage({ params }: Props) {
   const mapsUrl = contactInfo?.direccion
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactInfo.direccion)}`
     : 'https://maps.google.com';
+
+  // Validación robusta del código
+  const codigoValido = o.codigo_retiro && 
+    typeof o.codigo_retiro === 'string' && 
+    o.codigo_retiro.trim().length > 0 &&
+    !o.codigo_retiro.includes('undefined');
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -125,7 +132,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* RETIRO EN LOCAL (con código) */}
+      {/* RETIRO EN LOCAL (con código solo si pago confirmado) */}
       {isRetiro && !isCancelled && (
         <div className="card border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/10 p-5 mb-5">
           <h2 className="font-semibold text-green-800 dark:text-green-400 flex items-center gap-2 mb-4">
@@ -143,8 +150,8 @@ export default async function OrderDetailPage({ params }: Props) {
               ? <p>🕐 {contactInfo.horario}</p>
               : <p>🕐 Lunes a viernes de 9 a 18hs</p>}
 
-            {/* 👇 Código de retiro */}
-            {o.codigo_retiro && (
+            {/* 👇 Código de retiro (solo si pago confirmado y código válido) */}
+            {pagoConfirmado && codigoValido ? (
               <div className="bg-white dark:bg-zinc-800 border-2 border-dashed border-green-400 dark:border-green-600 rounded-lg p-3 my-2 text-center">
                 <p className="text-xs uppercase text-gray-500 dark:text-gray-400 tracking-wider">Código de retiro</p>
                 <p className="text-2xl font-mono font-bold text-green-700 dark:text-green-400 tracking-widest">
@@ -152,6 +159,18 @@ export default async function OrderDetailPage({ params }: Props) {
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Presentá este código al retirar tu pedido.
+                </p>
+              </div>
+            ) : pagoConfirmado && !codigoValido ? (
+              <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 my-2 text-center">
+                <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                  ⚠️ Este pedido no tiene código de retiro asignado. Contactá al local para coordinar el retiro.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 my-2 text-center">
+                <p className="text-xs text-blue-700 dark:text-blue-400">
+                  🔒 El código de retiro estará disponible una vez que se confirme el pago.
                 </p>
               </div>
             )}

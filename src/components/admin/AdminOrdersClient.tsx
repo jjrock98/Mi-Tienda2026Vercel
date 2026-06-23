@@ -264,6 +264,37 @@ export function AdminOrdersClient({ initialOrders }: Props) {
                           : <span className="badge bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">🚚 Envío a domicilio</span>}
                       </p>
                     </div>
+
+                    {/* 👇 CÓDIGO DE RETIRO (solo si pago confirmado) */}
+                    {(order as Order & { tipo_entrega?: string }).tipo_entrega === 'retiro' && (
+                      <div className="sm:col-span-2 mt-1">
+                        <p className="text-xs text-muted mb-1">Código de retiro</p>
+                        {['pagado', 'procesando', 'enviado', 'entregado'].includes(order.estado) ? (
+                          (order as Order & { codigo_retiro?: string }).codigo_retiro ? (
+                            <div className="bg-yellow-50 dark:bg-yellow-950/20 border-2 border-dashed border-yellow-400 dark:border-yellow-600 rounded-lg p-2 text-center">
+                              <p className="text-xl font-mono font-bold text-yellow-700 dark:text-yellow-400 tracking-widest">
+                                {(order as Order & { codigo_retiro?: string }).codigo_retiro}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                El cliente debe presentar este código al retirar.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-2 text-center">
+                              <p className="text-xs text-yellow-700 dark:text-yellow-400">⚠️ Sin código asignado</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Este pedido no tiene código de retiro. Asignar manualmente si es necesario.
+                              </p>
+                            </div>
+                          )
+                        ) : (
+                          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 text-center">
+                            <p className="text-xs text-blue-700 dark:text-blue-400">🔒 Código disponible tras confirmar pago</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div>
                       <p className="text-xs text-muted mb-1">Stock</p>
                       <p>{order.stock_descontado ? '✅ Descontado' : '⏳ Pendiente'}</p>
