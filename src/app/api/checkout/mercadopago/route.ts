@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { orderId } = body;
 
+    console.log('🔍 [MP] Recibida solicitud para orderId:', orderId);
+
     if (!orderId) {
+      console.error('❌ [MP] orderId requerido');
       return NextResponse.json({ error: 'orderId requerido' }, { status: 400 });
     }
 
@@ -20,11 +23,14 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (orderError || !order) {
-      console.error('[MP Checkout] Orden no encontrada:', orderError);
+      console.error('[MP] Orden no encontrada:', orderError);
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
 
+    console.log('✅ [MP] Orden encontrada:', order.id, 'Estado:', order.estado);
+
     if (order.estado !== 'pendiente') {
+      console.warn('[MP] Orden no está pendiente:', order.estado);
       return NextResponse.json({ error: `La orden está en estado "${order.estado}"` }, { status: 409 });
     }
 
@@ -38,12 +44,17 @@ export async function POST(req: NextRequest) {
       description: `${item.tipo_pack} - ${item.nombre_snap}`,
     }));
 
+    console.log('📦 [MP] Items:', JSON.stringify(items, null, 2));
+
     // ── 3. Configurar la preferencia ─────────────────────────────────────
     const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
+    console.log('🔑 [MP] Access Token presente:', !!mpAccessToken);
+    console.log('🌐 [MP] App URL:', appUrl);
+
     if (!mpAccessToken) {
-      console.error('[MP Checkout] MERCADOPAGO_ACCESS_TOKEN no configurado');
+      console.error('[MP] MERCADOPAGO_ACCESS_TOKEN no configurado');
       return NextResponse.json({ error: 'Configuración de pago incompleta' }, { status: 500 });
     }
 
@@ -72,6 +83,8 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    console.log('📤 [MP] Enviando a MP:', JSON.stringify(preferenceData, null, 2));
+
     // ── 4. Llamar a la API de MP ─────────────────────────────────────────
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -85,8 +98,11 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
+    console.log('📥 [MP] Status:', response.status);
+    console.log('📥 [MP] Respuesta completa:', JSON.stringify(data, null, 2));
+
     if (!response.ok) {
-      console.error('[MP Checkout] Error al crear preferencia:', data);
+      console.error('[MP] Error al crear preferencia:', data);
       const errorMsg = data.message || data.cause?.[0]?.description || 'Error al crear preferencia de pago';
       return NextResponse.json({ error: errorMsg }, { status: response.status });
     }
@@ -101,6 +117,10 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', orderId);
 
+    console.log('✅ [MP] Preferencia creada:', data.id);
+    console.log('🔗 [MP] initPoint:', data.init_point);
+    console.log('🔗 [MP] sandboxInitPoint:', data.sandbox_init_point);
+
     // ── 6. Responder con los puntos de inicio ──────────────────────────
     return NextResponse.json({
       preferenceId: data.id,
@@ -109,7 +129,7 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('[MP Checkout] Error inesperado:', error);
+    console.error('[MP] Error inesperado:', error);
     return NextResponse.json(
       { error: error.message || 'Error interno al crear preferencia' },
       { status: 500 }
