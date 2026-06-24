@@ -85,7 +85,6 @@ export default function CheckoutPage() {
       total: Number(totalAPagar),
     };
 
-    // 🔥 Obtener sessionId para liberar reservas
     const sessionId = localStorage.getItem('cart_session_id') || '';
 
     const res = await fetch('/api/orders', {
@@ -102,11 +101,19 @@ export default function CheckoutPage() {
   };
 
   const openMPPopup = (url: string) => {
+    if (!url || url === 'undefined' || url === 'null') {
+      toast.error('La URL de pago no está disponible. Reintentá.');
+      return null;
+    }
     const w = 1050, h = 700;
     const left = Math.round(screen.width  / 2 - w / 2);
     const top  = Math.round(screen.height / 2 - h / 2);
     const popup = window.open(url, 'MercadoPago', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no`);
-    if (!popup || popup.closed) { toast('Tu navegador bloqueó la ventana. Redirigiendo…', { icon: 'ℹ️' }); window.location.href = url; }
+    if (!popup || popup.closed) {
+      toast('Tu navegador bloqueó la ventana. Redirigiendo…', { icon: 'ℹ️' });
+      window.location.href = url;
+      return null;
+    }
     return popup;
   };
 
@@ -128,9 +135,31 @@ export default function CheckoutPage() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId }),
         });
-        const { initPoint, sandboxInitPoint, error } = await mpRes.json();
-        if (error) throw new Error(error);
-        const url = process.env.NODE_ENV === 'production' ? initPoint : sandboxInitPoint;
+        const data = await mpRes.json();
+        if (data.error) throw new Error(data.error);
+
+        // 🔍 Log para debug
+        console.log('🔍 Respuesta de MP:', data);
+
+        const { initPoint, sandboxInitPoint } = data;
+
+        // ✅ Detectar entorno por hostname (más fiable que NODE_ENV en cliente)
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // En producción siempre usar initPoint; en local usar sandboxInitPoint
+        let url = isLocal ? sandboxInitPoint : initPoint;
+
+        // 🔥 Fallback: si initPoint está vacío, usar sandboxInitPoint
+        if (!url || url === 'undefined' || url === 'null') {
+          console.warn('⚠️ initPoint vacío, usando sandboxInitPoint como fallback');
+          url = sandboxInitPoint;
+        }
+
+        if (!url || url === 'undefined' || url === 'null') {
+          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token.');
+        }
+
+        console.log('✅ URL final de MP:', url);
+
         setMpUrl(url);
         clearCart();
         setMpStatus('waiting');
@@ -140,6 +169,7 @@ export default function CheckoutPage() {
         router.push(`/subir-comprobante?orderId=${orderId}`);
       }
     } catch (err: unknown) {
+      console.error('❌ Error en checkout:', err);
       toast.error(err instanceof Error ? err.message : 'Error al procesar');
       setSub(false);
       setMpStatus('idle');
@@ -155,6 +185,11 @@ export default function CheckoutPage() {
             {mpStatus === 'opening' ? 'Abriendo Mercado Pago…' : 'Completá el pago en la ventana de Mercado Pago'}
           </h1>
           <p className="text-muted max-w-sm text-sm">Se abrió una ventana nueva. Una vez que completes el pago, serás redirigido automáticamente.</p>
+          {mpUrl && (
+            <p className="text-xs text-muted break-all bg-surface-2 p-2 rounded-lg max-w-md mx-auto">
+              URL: <span className="font-mono">{mpUrl}</span>
+            </p>
+          )}
         </div>
         {mpStatus === 'waiting' && (
           <div className="card p-4 w-full max-w-xs space-y-2 text-sm">
