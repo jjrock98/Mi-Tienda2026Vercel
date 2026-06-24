@@ -100,21 +100,14 @@ export default function CheckoutPage() {
     return json.data.id as string;
   };
 
+  // ✅ Redirigir directamente (sin ventana emergente)
   const openMPPopup = (url: string) => {
     if (!url || url === 'undefined' || url === 'null') {
-      toast.error('La URL de pago no está disponible. Reintentá.');
-      return null;
+      toast.error('La URL de pago no está disponible.');
+      return;
     }
-    const w = 1050, h = 700;
-    const left = Math.round(screen.width  / 2 - w / 2);
-    const top  = Math.round(screen.height / 2 - h / 2);
-    const popup = window.open(url, 'MercadoPago', `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no`);
-    if (!popup || popup.closed) {
-      toast('Tu navegador bloqueó la ventana. Redirigiendo…', { icon: 'ℹ️' });
-      window.location.href = url;
-      return null;
-    }
-    return popup;
+    // 🔥 Redirigir en la misma pestaña para evitar bloqueos de popup
+    window.location.href = url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,31 +130,26 @@ export default function CheckoutPage() {
         });
         const data = await mpRes.json();
 
-        // 🔍 LOGS PARA DEPURAR
         console.log('🔍 Respuesta completa de MP:', data);
         console.log('initPoint:', data.initPoint);
         console.log('sandboxInitPoint:', data.sandboxInitPoint);
-        console.log('error:', data.error);
 
         if (!mpRes.ok) {
-          const errorMsg = data.error || 'Error al crear la preferencia de pago';
-          throw new Error(errorMsg);
+          throw new Error(data.error || 'Error al crear la preferencia de pago');
         }
 
         const { initPoint, sandboxInitPoint } = data;
 
-        // ✅ Determinar entorno por hostname
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         let url = isLocal ? sandboxInitPoint : initPoint;
 
-        // 🔥 Fallback: si initPoint vacío, usar sandboxInitPoint
         if (!url || url === 'undefined' || url === 'null') {
           console.warn('⚠️ initPoint vacío, usando sandboxInitPoint como fallback');
           url = sandboxInitPoint;
         }
 
         if (!url || url === 'undefined' || url === 'null') {
-          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token y que la aplicación esté activa.');
+          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token.');
         }
 
         console.log('✅ URL final de MP:', url);
@@ -176,8 +164,7 @@ export default function CheckoutPage() {
       }
     } catch (err: unknown) {
       console.error('❌ Error en checkout:', err);
-      const msg = err instanceof Error ? err.message : 'Error al procesar';
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : 'Error al procesar');
       setSub(false);
       setMpStatus('idle');
     }
@@ -205,7 +192,7 @@ export default function CheckoutPage() {
           </div>
         )}
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          {mpUrl && <button onClick={() => openMPPopup(mpUrl)} className="btn-primary gap-2 w-full"><ExternalLink size={15} />Reabrir ventana de pago</button>}
+          {mpUrl && <button onClick={() => window.location.href = mpUrl} className="btn-primary gap-2 w-full"><ExternalLink size={15} />Reabrir ventana de pago</button>}
           <Link href="/mis-pedidos" className="btn-secondary w-full text-center text-sm">Ver mis pedidos</Link>
         </div>
         <p className="text-xs text-muted max-w-xs">¿Ya pagaste? Revisá <Link href="/mis-pedidos" className="text-brand-600 hover:underline">tus pedidos</Link>.</p>
