@@ -16,7 +16,6 @@ async function verifyAdmin() {
 
 export async function POST(req: NextRequest) {
   const adminUser = await verifyAdmin();
-  // ✅ CORREGIDO: si no hay admin, retornar error
   if (!adminUser) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
   const body = await req.json();
@@ -42,12 +41,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'El pedido ya está cancelado' }, { status: 409 });
   }
 
+  // 🔄 Si el stock ya fue descontado, restituirlo antes de cancelar
+  if (currentOrder.stock_descontado) {
+    const { data: restoreResult, error: restoreError } = await admin.rpc('devolver_stock_seguro', {
+      p_order_id: orderId,
+    });
+    if (restoreError || (restoreResult && restoreResult.success === false)) {
+      const errorMsg = restoreResult?.error || restoreError?.message || 'No se pudo restaurar el stock.';
+      return NextResponse.json({ error: errorMsg }, { status: 409 });
+    }
+    console.log(`✅ Stock restituido para pedido ${orderId} (rechazo)`);
+  }
+
   // Actualizar a cancelado con motivo
   const { data: order, error } = await admin
     .from('orders')
     .update({
       estado: 'cancelado',
       rejection_reason: reason,
+      stock_descontado: false, // porque ya se restituyó
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)

@@ -1,7 +1,7 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart, Package } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { cn, formatPrice } from '@/utils';
@@ -9,8 +9,8 @@ import { useWishlist } from '@/hooks/useWishlist';
 import { useAuth } from '@/hooks/useAuth';
 import type { Product } from '@/types';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
-// ✅ Cargar ProductModal solo en el cliente (evita errores de SSR/SSG)
 const ProductModal = dynamic(
   () => import('@/components/products/ProductModal').then((mod) => mod.ProductModal),
   { ssr: false }
@@ -24,9 +24,53 @@ export function ProductCard({ product: p }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const inWishlist = isInWishlist(p.id);
 
-  const maxMediaDocena = Math.floor(p.stock_unidades / 6);
-  const maxDocena      = Math.floor(p.stock_unidades / 12);
-  const sinStock       = p.stock_unidades === 0;
+  // ── Stock en tiempo real (polling) ──
+  const [stockReal, setStockReal] = useState(p.stock_unidades);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let interval: NodeJS.Timeout;
+
+    const fetchStock = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('stock_unidades')
+        .eq('id', p.id)
+        .single();
+      if (!error && data) {
+        setStockReal(data.stock_unidades);
+      }
+    };
+
+    // Carga inicial
+    fetchStock();
+
+    // Polling cada 5 segundos
+    interval = setInterval(fetchStock, 5000);
+
+    // Opcional: suscripción Realtime (comentar si no se usa)
+    // const channel = supabase
+    //   .channel(`product-${p.id}`)
+    //   .on(
+    //     'postgres_changes',
+    //     { event: 'UPDATE', schema: 'public', table: 'products', filter: `id=eq.${p.id}` },
+    //     (payload) => {
+    //       setStockReal(payload.new.stock_unidades);
+    //     }
+    //   )
+    //   .subscribe();
+    // return () => {
+    //   clearInterval(interval);
+    //   supabase.removeChannel(channel);
+    // };
+
+    return () => clearInterval(interval);
+  }, [p.id]);
+
+  // Usar stockReal para todos los cálculos
+  const maxMediaDocena = Math.floor(stockReal / 6);
+  const maxDocena      = Math.floor(stockReal / 12);
+  const sinStock       = stockReal === 0;
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -43,7 +87,6 @@ export function ProductCard({ product: p }: Props) {
 
   return (
     <>
-      {/* ✅ Toda la card es un link al producto para SEO */}
       <article className="card-hover group relative overflow-hidden">
         {/* Wishlist */}
         <button
@@ -59,7 +102,6 @@ export function ProductCard({ product: p }: Props) {
           <Heart size={16} fill={inWishlist ? 'currentColor' : 'none'} />
         </button>
 
-        {/* Image → link a la página de producto */}
         <Link
           href={`/productos/${p.slug}`}
           className="relative block overflow-hidden bg-surface-2"
@@ -95,9 +137,7 @@ export function ProductCard({ product: p }: Props) {
           )}
         </Link>
 
-        {/* Info */}
         <div className="p-4">
-          {/* Título también linkea */}
           <Link href={`/productos/${p.slug}`}>
             <h3 className="line-clamp-2 text-sm font-semibold leading-tight hover:text-brand-600 transition-colors">
               {p.nombre}
@@ -121,7 +161,7 @@ export function ProductCard({ product: p }: Props) {
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <Package size={11} />
             <span>
-              Stock: <span className={sinStock ? 'text-red-500 font-semibold' : ''}>{p.stock_unidades}</span>
+              Stock: <span className={sinStock ? 'text-red-500 font-semibold' : ''}>{stockReal}</span>
               {' '}— hasta {maxMediaDocena} ½doc / {maxDocena} doc
             </span>
           </div>
@@ -138,7 +178,7 @@ export function ProductCard({ product: p }: Props) {
       </article>
 
       {modalOpen && (
-        <ProductModal product={p} onClose={() => setModalOpen(false)} />
+        <ProductModal product={{ ...p, stock_unidades: stockReal }} onClose={() => setModalOpen(false)} />
       )}
     </>
   );

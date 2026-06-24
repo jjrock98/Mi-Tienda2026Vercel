@@ -17,12 +17,8 @@ export async function POST(req: NextRequest) {
     const { data, error: validErr } = parseBody(uploadComprobanteSchema, rawBody);
     if (validErr) return NextResponse.json({ error: validErr }, { status: 422 });
 
-    // ✅ null check explícito para satisfacer TypeScript
     if (!data) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 });
 
-    // ✅ Verificar que la URL pertenece a NUESTRO bucket de Supabase
-    // (evita que alguien guarde un link arbitrario disfrazado de
-    // "comprobante", que el admin podría abrir confiando en que es seguro)
     const expectedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/comprobantes/`;
     if (!data.comprobanteUrl.startsWith(expectedPrefix)) {
       return NextResponse.json({ error: 'URL de comprobante inválida' }, { status: 422 });
@@ -31,7 +27,7 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
     const { data: order } = await admin
       .from('orders')
-      .select('id, user_id')
+      .select('id, user_id, estado, stock_descontado')
       .eq('id', data.orderId)
       .single();
 
@@ -39,15 +35,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
     }
 
-    const { error } = await admin
+    // Si el pedido ya está pagado o cancelado, no permitir subir comprobante
+    if (order.estado === 'pagado' || order.estado === 'cancelado') {
+      return NextResponse.json({ error: `El pedido ya está ${order.estado}` }, { status: 409 });
+    }
+
+    // 1. Actualizar comprobante y cambiar estado a 'pendiente_pago'
+    const { error: updateErr } = await admin
       .from('orders')
       .update({
         comprobante_url: data.comprobanteUrl,
-        updated_at:      new Date().toISOString(),
+        estado: 'pendiente_pago',
+        updated_at: new Date().toISOString(),
       })
       .eq('id', data.orderId);
 
-    if (error) throw error;
+    if (updateErr) throw updateErr;
+
+    // 2. Descontar stock definitivamente (reserva permanente)
+    const { data: stockResult, error: stockError } = await admin.rpc('descontar_stock_solo', {
+      p_order_id: data.orderId,
+    });
+
+    if (stockError || (stockResult && stockResult.success === false)) {
+      const errorMsg = stockResult?.error || stockResult?.errors?.[0] || stockError?.message || 'No se pudo descontar el stock.';
+      console.error('❌ Error al descontar stock en upload:', errorMsg);
+      // No devolvemos error al cliente, pero loggeamos para que el admin sepa
+    } else {
+      console.log(`✅ Stock descontado para pedido ${data.orderId}`);
+    }
+
+    // 3. Liberar reservas temporales de carrito (si existen)
+    const sessionId = req.headers.get('x-session-id') || 'unknown';
+    await admin.rpc('liberar_reserva_carrito', {
+      p_session_id: sessionId,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     console.error('Upload error:', err);

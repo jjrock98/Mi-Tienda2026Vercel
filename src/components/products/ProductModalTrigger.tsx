@@ -1,8 +1,14 @@
 'use client';
 import { useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
-import { ProductModal as BaseModal } from './ProductModal';
+import dynamic from 'next/dynamic';
 import type { Product } from '@/types';
+
+// ✅ Carga dinámica para evitar problemas de SSR/SSG
+const ProductModal = dynamic(
+  () => import('@/components/products/ProductModal').then((mod) => mod.ProductModal),
+  { ssr: false }
+);
 
 interface Props {
   product:      Product;
@@ -23,7 +29,7 @@ export function ProductModalTrigger({ product, triggerLabel }: Props) {
         {product.stock_unidades === 0 ? 'Sin stock disponible' : (triggerLabel ?? 'Agregar al carrito')}
       </button>
 
-      {open && <BaseModal product={product} onClose={() => setOpen(false)} />}
+      {open && <ProductModal product={product} onClose={() => setOpen(false)} />}
     </>
   );
 }

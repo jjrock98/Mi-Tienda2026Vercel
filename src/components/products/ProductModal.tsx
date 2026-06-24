@@ -7,6 +7,7 @@ import { useCartStore } from '@/hooks/useCart';
 import type { Product, TipoPack } from '@/types';
 import { PACK_CONFIG } from '@/types';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 interface Props {
   product: Product;
@@ -14,37 +15,103 @@ interface Props {
 }
 
 export function ProductModal({ product, onClose }: Props) {
-  const addItem = useCartStore((s) => s.addItem);
-  const [tipoPack, setTipoPack]     = useState<TipoPack>('media_docena');
-  const [cantidad, setCantidad]     = useState(1);
-  const [imgIndex, setImgIndex]     = useState(0);
+  const { items, addItem } = useCartStore((s) => ({
+    items: s.items,
+    addItem: s.addItem,
+  }));
 
-  const maxMediaDocena = Math.floor(product.stock_unidades / 6);
-  const maxDocena      = Math.floor(product.stock_unidades / 12);
-  const maxCantidad    = tipoPack === 'media_docena' ? maxMediaDocena : maxDocena;
-  const unidadesPack   = PACK_CONFIG[tipoPack].unidades;
-  const precio         = tipoPack === 'media_docena' ? product.precio_media_docena : product.precio_docena;
-  const totalUnidades  = cantidad * unidadesPack;
-  const totalPrecio    = cantidad * precio;
+  const [tipoPack, setTipoPack] = useState<TipoPack>('media_docena');
+  const [cantidad, setCantidad] = useState(1);
+  const [imgIndex, setImgIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [stockTotal, setStockTotal] = useState<number>(product.stock_unidades);
 
-  // Reset cantidad when pack changes (functional update avoids needing 'cantidad' in deps)
+  useEffect(() => {
+    const fetchStock = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('products')
+        .select('stock_unidades')
+        .eq('id', product.id)
+        .single();
+      if (!error && data) {
+        setStockTotal(data.stock_unidades);
+      }
+    };
+    fetchStock();
+  }, [product.id, items]);
+
+  const unidadesEnCarrito = items
+    .filter((i) => i.productId === product.id)
+    .reduce((sum, i) => sum + i.unidades, 0);
+
+  const stockRestante = Math.max(0, stockTotal - unidadesEnCarrito);
+
+  const maxMediaDocena = Math.floor(stockRestante / 6);
+  const maxDocena = Math.floor(stockRestante / 12);
+  const maxCantidad = tipoPack === 'media_docena' ? maxMediaDocena : maxDocena;
+  const unidadesPack = PACK_CONFIG[tipoPack].unidades;
+  const precio = tipoPack === 'media_docena' ? product.precio_media_docena : product.precio_docena;
+  const totalUnidades = cantidad * unidadesPack;
+  const totalPrecio = cantidad * precio;
+
   useEffect(() => {
     setCantidad((c) => Math.min(c, maxCantidad || 1));
   }, [tipoPack, maxCantidad]);
 
-  const handleAdd = () => {
-    addItem({
-      productId:      product.id,
-      productSlug:    product.slug,
-      nombre:         product.nombre,
-      imagen:         product.imagenes[0] ?? '',
+  const handleAdd = async () => {
+    if (maxCantidad === 0) {
+      toast.error('No hay stock disponible para este pack');
+      return;
+    }
+
+    setLoading(true);
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('products')
+      .select('stock_unidades')
+      .eq('id', product.id)
+      .single();
+
+    if (error || !data) {
+      toast.error('Error al verificar stock. Intenta nuevamente.');
+      setLoading(false);
+      return;
+    }
+
+    const stockActual = data.stock_unidades;
+    const unidadesActualesEnCarrito = items
+      .filter((i) => i.productId === product.id)
+      .reduce((sum, i) => sum + i.unidades, 0);
+    const stockRestanteActual = Math.max(0, stockActual - unidadesActualesEnCarrito);
+    const unidadesSolicitadas = cantidad * (tipoPack === 'media_docena' ? 6 : 12);
+
+    if (unidadesSolicitadas > stockRestanteActual) {
+      toast.error(`Stock insuficiente. Disponible: ${stockRestanteActual} unidades`);
+      setLoading(false);
+      return;
+    }
+
+    const result = await addItem({
+      productId: product.id,
+      productSlug: product.slug,
+      nombre: product.nombre,
+      imagen: product.imagenes[0] ?? '',
       tipoPack,
-      cantidadPacks:  cantidad,
-      unidades:       totalUnidades,
+      cantidadPacks: cantidad,
+      unidades: totalUnidades,
       precioUnitario: precio,
     });
-    toast.success(`${cantidad} ${PACK_CONFIG[tipoPack].label} agregado${cantidad > 1 ? 's' : ''} al carrito`);
-    onClose();
+
+    if (result.success) {
+      toast.success(`${cantidad} ${PACK_CONFIG[tipoPack].label} agregado${cantidad > 1 ? 's' : ''} al carrito`);
+      onClose();
+    } else {
+      toast.error(result.error || 'No se pudo agregar al carrito');
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -53,7 +120,6 @@ export function ProductModal({ product, onClose }: Props) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface shadow-2xl animate-scale-in">
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 rounded-full p-1.5 hover:bg-surface-2 transition-colors"
@@ -62,18 +128,20 @@ export function ProductModal({ product, onClose }: Props) {
         </button>
 
         <div className="grid md:grid-cols-2">
-          {/* Images */}
           <div className="bg-surface-2 rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none overflow-hidden">
             <div className="relative aspect-square">
               {product.imagenes[imgIndex] ? (
                 <Image
                   src={product.imagenes[imgIndex]}
                   alt={product.nombre}
-                  fill className="object-cover"
+                  fill
+                  className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-muted"><Package size={60} /></div>
+                <div className="flex h-full items-center justify-center text-muted">
+                  <Package size={60} />
+                </div>
               )}
             </div>
             {product.imagenes.length > 1 && (
@@ -82,8 +150,10 @@ export function ProductModal({ product, onClose }: Props) {
                   <button
                     key={i}
                     onClick={() => setImgIndex(i)}
-                    className={cn('relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all',
-                      imgIndex === i ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100')}
+                    className={cn(
+                      'relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-all',
+                      imgIndex === i ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100'
+                    )}
                   >
                     <Image src={img} alt="" fill className="object-cover" sizes="56px" />
                   </button>
@@ -92,7 +162,6 @@ export function ProductModal({ product, onClose }: Props) {
             )}
           </div>
 
-          {/* Details */}
           <div className="p-6 flex flex-col gap-4">
             <div>
               <h2 className="font-display text-xl font-bold">{product.nombre}</h2>
@@ -101,12 +170,17 @@ export function ProductModal({ product, onClose }: Props) {
               )}
             </div>
 
-            {/* Stock info */}
             <div className="rounded-xl bg-surface-2 p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted">Stock disponible</span>
-                <span className="font-semibold">{product.stock_unidades} unidades</span>
+                <span className="font-semibold">{stockRestante} unidades</span>
               </div>
+              {unidadesEnCarrito > 0 && (
+                <div className="flex justify-between text-xs text-muted">
+                  <span>Ya tienes en el carrito</span>
+                  <span>{unidadesEnCarrito} uds</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted">Máx. media docena</span>
                 <span className="font-semibold">{maxMediaDocena} packs</span>
@@ -117,13 +191,14 @@ export function ProductModal({ product, onClose }: Props) {
               </div>
             </div>
 
-            {/* Colores & talles */}
             {product.colores.length > 0 && (
               <div>
                 <p className="text-xs font-medium mb-1.5">Colores</p>
                 <div className="flex flex-wrap gap-1.5">
                   {product.colores.map((c) => (
-                    <span key={c} className="badge bg-surface-2 text-foreground">{c}</span>
+                    <span key={c} className="badge bg-surface-2 text-foreground">
+                      {c}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -133,39 +208,45 @@ export function ProductModal({ product, onClose }: Props) {
                 <p className="text-xs font-medium mb-1.5">Talles</p>
                 <div className="flex flex-wrap gap-1.5">
                   {product.talles.map((t) => (
-                    <span key={t} className="badge bg-surface-2 text-foreground">{t}</span>
+                    <span key={t} className="badge bg-surface-2 text-foreground">
+                      {t}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Pack selector */}
             <div>
               <p className="text-xs font-medium mb-2">Tipo de pack</p>
               <div className="grid grid-cols-2 gap-2">
                 {(['media_docena', 'docena'] as TipoPack[]).map((t) => {
-                  const max   = t === 'media_docena' ? maxMediaDocena : maxDocena;
+                  const max = t === 'media_docena' ? maxMediaDocena : maxDocena;
                   const price = t === 'media_docena' ? product.precio_media_docena : product.precio_docena;
+                  const disabled = max === 0;
                   return (
                     <button
                       key={t}
-                      disabled={max === 0}
+                      disabled={disabled}
                       onClick={() => setTipoPack(t)}
                       className={cn(
                         'rounded-xl border-2 p-3 text-left transition-all text-sm',
-                        tipoPack === t ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30' : 'border-border hover:border-brand-300',
-                        max === 0 && 'opacity-40 cursor-not-allowed'
+                        tipoPack === t
+                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30'
+                          : 'border-border hover:border-brand-300',
+                        disabled && 'opacity-40 cursor-not-allowed'
                       )}
                     >
                       <p className="font-semibold">{PACK_CONFIG[t].label}</p>
                       <p className="text-brand-600 font-bold">{formatPrice(price)}</p>
+                      {disabled && (
+                        <p className="text-xs text-red-500 mt-1">Sin stock</p>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Quantity */}
             <div className="flex items-center gap-4">
               <p className="text-xs font-medium">Cantidad</p>
               <div className="flex items-center gap-2">
@@ -173,17 +254,20 @@ export function ProductModal({ product, onClose }: Props) {
                   onClick={() => setCantidad(Math.max(1, cantidad - 1))}
                   className="rounded-lg border p-1.5 hover:bg-surface-2 disabled:opacity-40"
                   disabled={cantidad <= 1}
-                ><Minus size={14} /></button>
+                >
+                  <Minus size={14} />
+                </button>
                 <span className="w-8 text-center text-sm font-semibold">{cantidad}</span>
                 <button
                   onClick={() => setCantidad(Math.min(maxCantidad, cantidad + 1))}
                   className="rounded-lg border p-1.5 hover:bg-surface-2 disabled:opacity-40"
                   disabled={cantidad >= maxCantidad}
-                ><Plus size={14} /></button>
+                >
+                  <Plus size={14} />
+                </button>
               </div>
             </div>
 
-            {/* Summary */}
             <div className="rounded-xl bg-brand-50 dark:bg-brand-950/20 p-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted">Total unidades</span>
@@ -197,11 +281,17 @@ export function ProductModal({ product, onClose }: Props) {
 
             <button
               onClick={handleAdd}
-              disabled={maxCantidad === 0}
+              disabled={maxCantidad === 0 || loading}
               className="btn-primary w-full"
             >
-              <ShoppingCart size={16} />
-              {maxCantidad === 0 ? 'Sin stock' : 'Agregar al carrito'}
+              {loading ? (
+                'Verificando stock...'
+              ) : (
+                <>
+                  <ShoppingCart size={16} />
+                  {maxCantidad === 0 ? 'Sin stock' : 'Agregar al carrito'}
+                </>
+              )}
             </button>
           </div>
         </div>

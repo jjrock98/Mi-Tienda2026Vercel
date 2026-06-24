@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { formatPrice, formatDate, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/utils';
 import { PACK_CONFIG } from '@/types';
 import type { Order, OrderEstado } from '@/types';
-// import { useRealtimeOrders } from '@/hooks/useRealtimeOrders'; // Comentado
 import {
   ExternalLink, ChevronDown, Search, CheckCircle, XCircle,
   FileCheck, Clock, Loader2, AlertTriangle,
@@ -49,13 +48,6 @@ export function AdminOrdersClient({ initialOrders }: Props) {
       clearInterval(interval);
     };
   }, []);
-
-  // ── Realtime (comentado porque causa errores) ──
-  // const handleOrdersChange = useCallback((updated: Order[]) => {
-  //   setOrders(updated);
-  //   toast('Pedidos actualizados en tiempo real', { icon: '🔄', duration: 2000 });
-  // }, []);
-  // useRealtimeOrders(handleOrdersChange);
 
   const filtered = orders.filter((o) => {
     const matchFilter = filter === 'todos' || o.estado === filter;
@@ -206,11 +198,13 @@ export function AdminOrdersClient({ initialOrders }: Props) {
       {/* Orders list */}
       <div className="space-y-3">
         {effectiveFilter.map((order) => {
+          // ✅ CONDICIÓN MEJORADA: muestra botones para comprobantes sin revisar
+          // en estado pendiente O pendiente_pago (o cualquier estado no final)
           const hasComprobanteToReview =
             order.metodo_pago === 'transferencia' &&
             order.comprobante_url &&
             !order.comprobante_revisado &&
-            order.estado === 'pendiente';
+            (order.estado === 'pendiente' || order.estado === 'pendiente_pago');
 
           return (
             <div key={order.id} className={cn(

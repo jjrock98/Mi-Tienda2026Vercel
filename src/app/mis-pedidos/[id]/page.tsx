@@ -15,6 +15,7 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Pedido #${params.id.slice(0,8).toUpperCase()}` };
 }
 
+// ✅ Comentario añadido: 'pendiente_pago' se trata como sub-estado de 'pendiente' en el timeline
 const ALL_STEPS    = ['pendiente','pagado','procesando','enviado','entregado'];
 const RETIRO_STEPS = ['pendiente','pagado','procesando','entregado'];
 
@@ -27,10 +28,13 @@ export default async function OrderDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?redirect=/mis-pedidos');
 
+  // 🔍 Incluimos codigo_retiro y filtramos por usuario
   const { data: order } = await supabase
     .from('orders')
     .select('*, codigo_retiro, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
-    .eq('id', params.id).eq('user_id', user.id).single();
+    .eq('id', params.id)
+    .eq('user_id', user.id)
+    .single();
 
   if (!order) notFound();
   const o = order as Order;
@@ -112,8 +116,8 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Cupón de efectivo pendiente de pago */}
-      {o.estado === 'pendiente_pago' && (
+      {/* ✅ Cupón de efectivo (SOLO para Mercado Pago) */}
+      {o.estado === 'pendiente_pago' && o.metodo_pago === 'mercadopago' && (
         <div className="card border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/10 p-5 mb-5">
           <h2 className="font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-2 mb-3">
             <Receipt size={18} /> Cupón de pago en efectivo generado
@@ -132,7 +136,22 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* RETIRO EN LOCAL (con código solo si pago confirmado) */}
+      {/* ✅ Comprobante en revisión (para transferencia) */}
+      {o.estado === 'pendiente_pago' && o.metodo_pago === 'transferencia' && (
+        <div className="card border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/10 p-5 mb-5">
+          <h2 className="font-semibold text-blue-800 dark:text-blue-400 flex items-center gap-2 mb-3">
+            <Receipt size={18} /> Comprobante en revisión
+          </h2>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Tu comprobante de transferencia fue recibido. Estamos verificando el pago y te avisaremos por email cuando sea aprobado.
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+            El stock de los productos ha sido reservado temporalmente mientras se confirma tu pago.
+          </p>
+        </div>
+      )}
+
+      {/* RETIRO EN LOCAL */}
       {isRetiro && !isCancelled && (
         <div className="card border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/10 p-5 mb-5">
           <h2 className="font-semibold text-green-800 dark:text-green-400 flex items-center gap-2 mb-4">

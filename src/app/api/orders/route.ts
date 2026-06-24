@@ -204,6 +204,12 @@ export async function POST(req: NextRequest) {
         }
       });
 
+    // 🔥 LIBERAR RESERVAS DE ESTA SESIÓN
+    const sessionId = req.headers.get('x-session-id') || 'unknown';
+    await admin.rpc('liberar_reserva_carrito', {
+      p_session_id: sessionId,
+    });
+
     return NextResponse.json({ data: order });
   } catch (err: unknown) {
     console.error('Order error:', err);

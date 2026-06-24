@@ -26,7 +26,6 @@ export default function CheckoutPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { items, costoEnvio, codigoPostal, zonaEnvio, clearCart, setShipping } = useCartStore();
 
-  // ✅ ESTADOS (declarados ANTES de cualquier cálculo que dependa de ellos)
   const [metodo,      setMetodo]      = useState<MetodoPago>('mercadopago');
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>('envio');
   const [form, setForm] = useState({
@@ -38,14 +37,11 @@ export default function CheckoutPage() {
   const [mpUrl,       setMpUrl]       = useState('');
   const [pendingId,   setPendingId]   = useState('');
 
-  // ✅ Cálculo de subtotal y total con/sin comisión (después de los estados)
   const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadPacks), 0);
   const subtotalConMP = subtotal * (1 + MP_COMMISSION);
   const envio = tipoEntrega === 'envio' ? costoEnvio : 0;
   const totalSinMP = subtotal + envio;
   const totalConMP = subtotalConMP + envio;
-
-  // Total final según método de pago
   const totalAPagar = metodo === 'mercadopago' ? totalConMP : totalSinMP;
 
   useEffect(() => {
@@ -62,7 +58,6 @@ export default function CheckoutPage() {
     }
   }, [profile]);
 
-  // Al elegir retiro, costo de envío = 0
   useEffect(() => {
     if (tipoEntrega === 'retiro') {
       setShipping('retiro', 0, 'Retiro en local');
@@ -74,7 +69,6 @@ export default function CheckoutPage() {
       setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const createOrder = async () => {
-    // Validación antes de enviar
     if (items.length === 0) {
       throw new Error('El carrito está vacío');
     }
@@ -91,10 +85,15 @@ export default function CheckoutPage() {
       total: Number(totalAPagar),
     };
 
-    console.log('📦 Enviando a /api/orders:', payload);
+    // 🔥 Obtener sessionId para liberar reservas
+    const sessionId = localStorage.getItem('cart_session_id') || '';
 
     const res = await fetch('/api/orders', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId,
+      },
       body: JSON.stringify(payload),
     });
     const json = await res.json();
@@ -147,7 +146,6 @@ export default function CheckoutPage() {
     }
   };
 
-  // ── Waiting for MP ──
   if (mpStatus === 'waiting' || mpStatus === 'opening') {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 px-4 text-center">
@@ -220,7 +218,6 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {/* Retiro info */}
               {tipoEntrega === 'retiro' && (
                 <div className="mt-4 rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 p-4 space-y-2">
                   <p className="text-sm font-semibold text-green-800 dark:text-green-400 flex items-center gap-2">
@@ -289,7 +286,6 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
-              {/* ✅ Mostrar descuento/recargo según método */}
               {metodo === 'transferencia' && (
                 <div className="mt-4 rounded-xl bg-green-50 dark:bg-green-950/20 p-4 text-sm text-green-700 dark:text-green-400 flex items-start gap-3">
                   <Percent size={18} className="shrink-0 mt-0.5 text-green-600" />
@@ -327,7 +323,6 @@ export default function CheckoutPage() {
               <div className="border-t border-border pt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-muted"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
 
-                {/* Mostrar subtotal con MP solo si el método es MP */}
                 {metodo === 'mercadopago' && (
                   <div className="flex justify-between text-xs text-muted border-b border-dashed border-border pb-1">
                     <span>Recargo MP ({Math.round(MP_COMMISSION * 100)}%)</span>

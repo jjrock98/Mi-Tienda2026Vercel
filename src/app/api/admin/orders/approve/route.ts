@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Obtener el pedido actual
   const { data: currentOrder } = await admin
     .from('orders')
     .select('*, order_items(*)')
@@ -40,12 +39,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'El pedido ya está pagado' }, { status: 409 });
   }
 
-  // Actualizar a pagado
+  if (currentOrder.estado !== 'pendiente_pago') {
+    return NextResponse.json(
+      { error: `El pedido está en estado "${currentOrder.estado}" y no se puede aprobar.` },
+      { status: 409 }
+    );
+  }
+
+  // ✅ El stock ya fue descontado al subir comprobante, solo actualizamos el estado
   const { data: order, error } = await admin
     .from('orders')
     .update({
       estado: 'pagado',
       updated_at: new Date().toISOString(),
+      comprobante_revisado: true,
     })
     .eq('id', orderId)
     .select('*, order_items(*)')
