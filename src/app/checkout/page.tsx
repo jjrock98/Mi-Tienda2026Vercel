@@ -136,26 +136,32 @@ export default function CheckoutPage() {
           body: JSON.stringify({ orderId }),
         });
         const data = await mpRes.json();
-        if (data.error) throw new Error(data.error);
 
-        // 🔍 Log para debug
-        console.log('🔍 Respuesta de MP:', data);
+        // 🔍 LOGS PARA DEPURAR
+        console.log('🔍 Respuesta completa de MP:', data);
+        console.log('initPoint:', data.initPoint);
+        console.log('sandboxInitPoint:', data.sandboxInitPoint);
+        console.log('error:', data.error);
+
+        if (!mpRes.ok) {
+          const errorMsg = data.error || 'Error al crear la preferencia de pago';
+          throw new Error(errorMsg);
+        }
 
         const { initPoint, sandboxInitPoint } = data;
 
-        // ✅ Detectar entorno por hostname (más fiable que NODE_ENV en cliente)
+        // ✅ Determinar entorno por hostname
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        // En producción siempre usar initPoint; en local usar sandboxInitPoint
         let url = isLocal ? sandboxInitPoint : initPoint;
 
-        // 🔥 Fallback: si initPoint está vacío, usar sandboxInitPoint
+        // 🔥 Fallback: si initPoint vacío, usar sandboxInitPoint
         if (!url || url === 'undefined' || url === 'null') {
           console.warn('⚠️ initPoint vacío, usando sandboxInitPoint como fallback');
           url = sandboxInitPoint;
         }
 
         if (!url || url === 'undefined' || url === 'null') {
-          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token.');
+          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token y que la aplicación esté activa.');
         }
 
         console.log('✅ URL final de MP:', url);
@@ -170,7 +176,8 @@ export default function CheckoutPage() {
       }
     } catch (err: unknown) {
       console.error('❌ Error en checkout:', err);
-      toast.error(err instanceof Error ? err.message : 'Error al procesar');
+      const msg = err instanceof Error ? err.message : 'Error al procesar';
+      toast.error(msg);
       setSub(false);
       setMpStatus('idle');
     }
