@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
+  // 🔥 LOG DISTINTIVO PARA SABER SI ESTE ENDPOINT SE EJECUTA
+  console.log('🚀🚀🚀 ENDPOINT DE CHECKOUT EJECUTADO 🚀🚀🚀');
+
   try {
     const body = await req.json();
     const { orderId } = body;

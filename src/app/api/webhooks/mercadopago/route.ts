@@ -33,6 +33,9 @@ interface MPPaymentResponse {
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  // 📡 LOG DISTINTIVO PARA SABER SI ESTE ENDPOINT SE EJECUTA
+  console.log('📡📡📡 WEBHOOK EJECUTADO 📡📡📡');
+
   try {
     const body = (await req.json().catch(() => null)) as MPWebhookBody | null;
 
