@@ -1,6 +1,31 @@
 // src/app/api/create-mp-preference/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { MP_COMMISSION } from '@/lib/constants';
+
+// Definir tipos locales (para evitar errores de any implícito)
+interface OrderItem {
+  id: string;
+  product_id: string;
+  tipo_pack: string;
+  cantidad_packs: number;
+  unidades: number;
+  precio_unit: number;
+  subtotal: number;
+  nombre_snap: string;
+  imagen_snap: string | null;
+}
+
+interface Order {
+  id: string;
+  estado: string;
+  email: string;
+  nombre: string;
+  telefono: string | null;
+  total: number;
+  // otros campos...
+  order_items: OrderItem[];
+}
 
 export async function POST(req: NextRequest) {
   console.log('🚀🚀🚀 ENDPOINT DE CHECKOUT (NUEVA RUTA) EJECUTADO 🚀🚀🚀');
@@ -25,19 +50,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
 
-    if (order.estado !== 'pendiente') {
-      return NextResponse.json({ error: `La orden está en estado "${order.estado}"` }, { status: 409 });
+    // Cast a Order para tener tipos
+    const orderData = order as Order;
+
+    if (orderData.estado !== 'pendiente') {
+      return NextResponse.json({ error: `La orden está en estado "${orderData.estado}"` }, { status: 409 });
     }
 
-    const items = order.order_items.map((item: any) => ({
-      id: item.product_id,
-      title: item.nombre_snap,
-      quantity: item.cantidad_packs,
-      unit_price: Number(item.precio_unit),
-      currency_id: 'ARS',
-      description: `${item.tipo_pack} - ${item.nombre_snap}`,
-    }));
+    const commission = typeof MP_COMMISSION === 'number' ? MP_COMMISSION : 0.07;
 
+    // 1️⃣ Construir items con precios que incluyan el recargo de MP
+    const items = orderData.order_items.map((item: OrderItem) => {
+      const basePrice = Number(item.precio_unit);
+      const priceWithCommission = basePrice * (1 + commission);
+      return {
+        id: item.product_id,
+        title: item.nombre_snap,
+        quantity: item.cantidad_packs,
+        unit_price: Math.round(priceWithCommission * 100) / 100,
+        currency_id: 'ARS',
+        description: `${item.tipo_pack} - ${item.nombre_snap}`,
+      };
+    });
+
+    // 2️⃣ Ajustar el último ítem para que la suma coincida exactamente con `order.total`
+    const totalOrder = Number(orderData.total);
+    let sumItems = items.reduce((acc: number, item) => acc + (item.unit_price * item.quantity), 0);
+    const diff = Math.round((totalOrder - sumItems) * 100) / 100;
+
+    if (Math.abs(diff) > 0.01 && items.length > 0) {
+      const lastItem = items[items.length - 1];
+      const newUnitPrice = Math.round((lastItem.unit_price + diff / lastItem.quantity) * 100) / 100;
+      lastItem.unit_price = newUnitPrice;
+      console.log(`⚖️ Ajuste de precio para coincidir con el total: +${diff} en "${lastItem.title}"`);
+    }
+
+    // 3️⃣ Variables de entorno
     const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
@@ -45,12 +93,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta Access Token de MP' }, { status: 500 });
     }
 
+    // 4️⃣ Construir la preferencia
     const preferenceData = {
       items,
       payer: {
-        email: order.email,
-        name: order.nombre,
-        phone: { number: order.telefono || '' },
+        email: orderData.email,
+        name: orderData.nombre,
+        phone: { number: orderData.telefono || '' },
       },
       external_reference: orderId,
       notification_url: `${appUrl}/api/webhooks/mercadopago`,
@@ -70,10 +119,11 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    // 5️⃣ Llamar a la API de MP
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${mpAccessToken}`,
+        Authorization: `Bearer ${mpAccessToken}`,
         'Content-Type': 'application/json',
         'X-Idempotency-Key': orderId,
       },
@@ -88,6 +138,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg, detail: data }, { status: response.status });
     }
 
+    // 6️⃣ Guardar preference_id en la orden
     await admin
       .from('orders')
       .update({
@@ -106,7 +157,6 @@ export async function POST(req: NextRequest) {
       initPoint: data.init_point,
       sandboxInitPoint: data.sandbox_init_point,
     });
-
   } catch (error: any) {
     console.error('[MP] Error inesperado:', error);
     return NextResponse.json(
@@ -117,4 +167,4 @@ export async function POST(req: NextRequest) {
 }
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';"// force update" 
+export const dynamic = 'force-dynamic';
