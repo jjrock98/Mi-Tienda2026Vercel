@@ -124,7 +124,7 @@ export default function CheckoutPage() {
       setPendingId(orderId);
       if (metodo === 'mercadopago') {
         setMpStatus('opening');
-        const mpRes = await fetch('/api/checkout/mercadopago', {
+        const mpRes = await fetch('/api/create-mp-preference', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId }),
         });
