@@ -140,16 +140,27 @@ export default function CheckoutPage() {
 
         const { initPoint, sandboxInitPoint } = data;
 
+        // ✅ Determinar si estamos en localhost
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        let url = isLocal ? sandboxInitPoint : initPoint;
 
-        if (!url || url === 'undefined' || url === 'null') {
-          console.warn('⚠️ initPoint vacío, usando sandboxInitPoint como fallback');
+        let url: string;
+
+        if (isLocal) {
+          // En local, usar sandbox
           url = sandboxInitPoint;
+          console.log('🌐 Usando sandbox (local)');
+        } else {
+          // En producción, usar initPoint OBLIGATORIAMENTE
+          if (!initPoint || initPoint === 'undefined' || initPoint === 'null') {
+            console.error('❌ initPoint no recibido o inválido:', data);
+            throw new Error('No se recibió la URL de pago de Mercado Pago. Revisá el Access Token y la configuración.');
+          }
+          url = initPoint;
+          console.log('🌐 Usando producción (initPoint)');
         }
 
         if (!url || url === 'undefined' || url === 'null') {
-          throw new Error('No se pudo obtener la URL de pago. Verificá el Access Token.');
+          throw new Error('La URL de pago está vacía.');
         }
 
         console.log('✅ URL final de MP:', url);
