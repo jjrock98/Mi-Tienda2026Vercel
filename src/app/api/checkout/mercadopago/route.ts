@@ -7,14 +7,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { orderId } = body;
 
-    console.log('🔍 [MP] Recibida solicitud para orderId:', orderId);
+    console.log('🔍 [MP] orderId:', orderId);
 
     if (!orderId) {
-      console.error('❌ [MP] orderId requerido');
       return NextResponse.json({ error: 'orderId requerido' }, { status: 400 });
     }
 
-    // ── 1. Obtener la orden ──────────────────────────────────────────────
     const admin = createAdminClient();
     const { data: order, error: orderError } = await admin
       .from('orders')
@@ -27,14 +25,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
 
-    console.log('✅ [MP] Orden encontrada:', order.id, 'Estado:', order.estado);
-
     if (order.estado !== 'pendiente') {
-      console.warn('[MP] Orden no está pendiente:', order.estado);
       return NextResponse.json({ error: `La orden está en estado "${order.estado}"` }, { status: 409 });
     }
 
-    // ── 2. Construir items para MP ──────────────────────────────────────
+    // ── Items ──
     const items = order.order_items.map((item: any) => ({
       id: item.product_id,
       title: item.nombre_snap,
@@ -44,20 +39,18 @@ export async function POST(req: NextRequest) {
       description: `${item.tipo_pack} - ${item.nombre_snap}`,
     }));
 
-    console.log('📦 [MP] Items:', JSON.stringify(items, null, 2));
-
-    // ── 3. Configurar la preferencia ─────────────────────────────────────
+    // ── Variables de entorno ──
     const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-    console.log('🔑 [MP] Access Token presente:', !!mpAccessToken);
-    console.log('🌐 [MP] App URL:', appUrl);
+    console.log('🔑 Access Token presente:', !!mpAccessToken);
+    console.log('🌐 App URL:', appUrl);
 
     if (!mpAccessToken) {
-      console.error('[MP] MERCADOPAGO_ACCESS_TOKEN no configurado');
-      return NextResponse.json({ error: 'Configuración de pago incompleta' }, { status: 500 });
+      return NextResponse.json({ error: 'Falta Access Token de MP' }, { status: 500 });
     }
 
+    // ── Payload ──
     const preferenceData = {
       items,
       payer: {
@@ -83,9 +76,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    console.log('📤 [MP] Enviando a MP:', JSON.stringify(preferenceData, null, 2));
-
-    // ── 4. Llamar a la API de MP ─────────────────────────────────────────
+    // ── Llamada a MP ──
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -98,16 +89,14 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
 
-    console.log('📥 [MP] Status:', response.status);
-    console.log('📥 [MP] Respuesta completa:', JSON.stringify(data, null, 2));
-
+    // 🔥 SI FALLA, DEVOLVEMOS EL ERROR EXACTO DE MERCADO PAGO
     if (!response.ok) {
-      console.error('[MP] Error al crear preferencia:', data);
-      const errorMsg = data.message || data.cause?.[0]?.description || 'Error al crear preferencia de pago';
-      return NextResponse.json({ error: errorMsg }, { status: response.status });
+      console.error('[MP] Error completo:', JSON.stringify(data, null, 2));
+      const msg = data.message || data.cause?.[0]?.description || 'Error al crear preferencia';
+      return NextResponse.json({ error: msg, detail: data }, { status: response.status });
     }
 
-    // ── 5. Guardar preference_id en la orden ────────────────────────────
+    // ── Guardar preference_id ──
     await admin
       .from('orders')
       .update({
@@ -117,11 +106,10 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', orderId);
 
-    console.log('✅ [MP] Preferencia creada:', data.id);
-    console.log('🔗 [MP] initPoint:', data.init_point);
-    console.log('🔗 [MP] sandboxInitPoint:', data.sandbox_init_point);
+    console.log('✅ Preferencia creada:', data.id);
+    console.log('🔗 initPoint:', data.init_point);
+    console.log('🔗 sandboxInitPoint:', data.sandbox_init_point);
 
-    // ── 6. Responder con los puntos de inicio ──────────────────────────
     return NextResponse.json({
       preferenceId: data.id,
       initPoint: data.init_point,
