@@ -31,14 +31,10 @@
   ],
 
   "crons": [
-    {
-      "path": "/api/revalidate?secret=REVALIDATE_SECRET_TOKEN",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/liberar-reservas",
-      "schedule": "*/5 * * * *"
-    }
+  {
+    "path": "/api/revalidate?secret=REVALIDATE_SECRET_TOKEN",
+    "schedule": "0 3 * * *"
+  }
   ],
 
   "functions": {
