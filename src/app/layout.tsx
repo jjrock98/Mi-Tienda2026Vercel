@@ -4,7 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { createClient } from '@/lib/supabase/server';
-import ClientLayout from '@/components/ClientLayout'; // 👈 Importamos el componente cliente
+import ClientLayout from '@/components/ClientLayout';
 
 import './globals.css';
 
@@ -23,6 +23,10 @@ export const metadata: Metadata = {
     icon: '/icons/icon-192.png',
     shortcut: '/icons/icon-192.png',
     apple: '/icons/icon-192.png',
+  },
+  // ✅ Verificación de Google Search Console
+  verification: {
+    google: 's3kD92XTr9ajSAy0L1tzybztVQRIV1HSy8D66nTw-GM',
   },
 };
 
@@ -48,7 +52,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-body bg-surface text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {/* 👇 Todo lo que necesita 'use client' va aquí */}
           <ClientLayout contactInfo={contactData}>
             {children}
           </ClientLayout>
