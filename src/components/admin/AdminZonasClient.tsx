@@ -85,7 +85,54 @@ export function AdminZonasClient({ initialZones }: { initialZones: ShippingZone[
         </button>
       </div>
 
-      <div className="card overflow-hidden">
+      {/* ─── VISTA MÓVIL: CARDS ─── */}
+      <div className="block sm:hidden space-y-3">
+        {zones.map((z) => (
+          <div key={z.id} className="card p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium flex items-center gap-2">
+                <Truck size={14} className="text-brand-500" /> {z.nombre}
+              </span>
+              <button onClick={() => toggleActive(z)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors
+                  ${z.activo ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform
+                  ${z.activo ? 'translate-x-5' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {z.codigos_postales.slice(0, 6).map((cp) => (
+                <span key={cp} className="badge bg-surface-2 text-xs">{cp}</span>
+              ))}
+              {z.codigos_postales.length > 6 && (
+                <span className="badge bg-surface-2 text-xs text-muted">+{z.codigos_postales.length - 6}</span>
+              )}
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Costo</span>
+              <span className="font-semibold text-brand-600">{formatPrice(z.costo)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Entrega</span>
+              <span className="text-muted">{z.dias_entrega ?? '—'}</span>
+            </div>
+            <div className="flex justify-end gap-1 pt-1 border-t border-border">
+              <button onClick={() => openEdit(z)} className="btn-ghost p-1.5 text-muted hover:text-brand-600">
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => handleDelete(z.id)} className="btn-ghost p-1.5 text-muted hover:text-red-500">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {zones.length === 0 && (
+          <div className="card p-12 text-center text-sm text-muted">No hay zonas de envío. Creá la primera.</div>
+        )}
+      </div>
+
+      {/* ─── VISTA DESKTOP: TABLA ─── */}
+      <div className="hidden sm:block card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-surface-2">
             <tr className="text-left text-xs text-muted">
@@ -144,7 +191,7 @@ export function AdminZonasClient({ initialZones }: { initialZones: ShippingZone[
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal (sin cambios) */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={(e) => e.target === e.currentTarget && close()}>

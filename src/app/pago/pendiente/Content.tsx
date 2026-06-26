@@ -5,8 +5,8 @@ import { Clock, Banknote, Info } from 'lucide-react';
 
 export function PagoPendienteContent() {
   const params      = useSearchParams();
-  const orderId     = params.get('orderId') ?? params.get('external_reference');
-  const paymentType = params.get('payment_type');
+  const orderId     = params?.get('orderId') ?? params?.get('external_reference');
+  const paymentType = params?.get('payment_type');
   const isCash      = paymentType === 'ticket' || paymentType === 'atm';
   const [count, setCount] = useState(5);
 

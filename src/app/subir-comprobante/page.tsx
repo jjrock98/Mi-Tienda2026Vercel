@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export default function SubirComprobantePage() {
   const router  = useRouter();
   const params  = useSearchParams();
-  const orderId = params.get('orderId');
+  const orderId = params?.get('orderId');
   const { user } = useAuth();
   const supabase = createClient();
 

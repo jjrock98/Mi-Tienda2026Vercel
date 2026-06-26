@@ -65,7 +65,7 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
 export default function RegistroPage() {
   const router   = useRouter();
   const params   = useSearchParams();
-  const redirect = params.get('redirect') ?? '/';
+  const redirect = params?.get('redirect') ?? '/';
   const supabase = createClient();
 
   const [showPw,  setShowPw]  = useState(false);

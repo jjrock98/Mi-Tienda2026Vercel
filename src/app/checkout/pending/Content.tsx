@@ -27,7 +27,7 @@ import { getCashCouponExpiry } from '@/utils';
  */
 export function PendingContent() {
   const params  = useSearchParams();
-  const orderId = params.get('orderId') ?? params.get('external_reference');
+  const orderId = params?.get('orderId') ?? params?.get('external_reference');
   const expiry  = getCashCouponExpiry();
 
   const STEPS = [

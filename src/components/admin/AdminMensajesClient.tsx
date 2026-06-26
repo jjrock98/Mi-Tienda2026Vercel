@@ -43,7 +43,7 @@ export function AdminMensajesClient({ initialMessages }: { initialMessages: Cont
               ${msg.leido ? 'border-l-border opacity-80' : 'border-l-brand-500'}`}>
             {/* Header */}
             <div
-              className="flex items-start justify-between gap-3 p-4 cursor-pointer hover:bg-surface-2 transition-colors"
+              className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-4 cursor-pointer hover:bg-surface-2 transition-colors"
               onClick={() => {
                 setExpanded(expanded === msg.id ? null : msg.id);
                 if (!msg.leido) markRead(msg.id, true);
@@ -60,7 +60,7 @@ export function AdminMensajesClient({ initialMessages }: { initialMessages: Cont
                   <p className="text-xs text-muted truncate">{msg.asunto || 'Sin asunto'}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <span className="text-xs text-muted">{formatDate(msg.created_at)}</span>
                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -80,7 +80,7 @@ export function AdminMensajesClient({ initialMessages }: { initialMessages: Cont
             {/* Body */}
             {expanded === msg.id && (
               <div className="border-t border-border px-4 pb-4 pt-3 animate-fade-in">
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.mensaje}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-all">{msg.mensaje}</p>
                 <a
                   href={`mailto:${msg.email}?subject=Re: ${encodeURIComponent(msg.asunto ?? 'Tu consulta')}`}
                   className="mt-4 inline-flex items-center gap-2 text-xs text-brand-600 hover:underline"

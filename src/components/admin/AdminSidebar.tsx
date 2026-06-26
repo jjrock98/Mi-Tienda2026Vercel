@@ -27,7 +27,7 @@ export function AdminSidebar() {
       </div>
       <nav className="flex-1 py-4 px-3 space-y-0.5">
         {LINKS.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
+          const active = pathname === href || (href !== '/admin' && pathname?.startsWith(href));
           return (
             <Link
               key={href}

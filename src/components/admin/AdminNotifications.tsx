@@ -40,11 +40,8 @@ export function AdminNotifications() {
 
       {open && (
         <>
-          {/* Overlay */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-
-          {/* Dropdown */}
-          <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-2xl border border-border bg-surface shadow-2xl animate-scale-in overflow-hidden">
+          <div className="absolute right-0 top-full z-20 mt-2 w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-border bg-surface shadow-2xl animate-scale-in overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h3 className="font-semibold text-sm">Notificaciones</h3>
               <div className="flex items-center gap-2">

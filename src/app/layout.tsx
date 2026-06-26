@@ -1,30 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
-import { Toaster } from 'react-hot-toast';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/server';
-
-// Componentes dinámicos
-const Navbar = dynamic(
-  () => import('@/components/layout/Navbar').then((mod) => mod.Navbar),
-  { ssr: false }
-);
-
-const EmailVerificationBanner = dynamic(
-  () => import('@/components/common/EmailVerificationBanner').then((mod) => mod.EmailVerificationBanner),
-  { ssr: false }
-);
-
-// Componentes estáticos
-import { Footer } from '@/components/layout/Footer';
-import { WhatsAppButton } from '@/components/common/WhatsAppButton';
-import { TawkTo } from '@/components/common/TawkTo';
-import { CookieConsent } from '@/components/common/CookieConsent';
-import { BackToTop } from '@/components/common/BackToTop';
-import { ConfirmationMessage } from '@/components/common/ConfirmationMessage'; // Nuevo
+import ClientLayout from '@/components/ClientLayout'; // 👈 Importamos el componente cliente
 
 import './globals.css';
 
@@ -39,7 +19,6 @@ export const metadata: Metadata = {
   openGraph: { type: 'website', locale: 'es_AR', siteName: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
   twitter: { card: 'summary_large_image' },
   robots: { index: true, follow: true },
-  // ✅ FAVICON EXPLÍCITO usando el icono PWA que ya tienes
   icons: {
     icon: '/icons/icon-192.png',
     shortcut: '/icons/icon-192.png',
@@ -69,20 +48,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-body bg-surface text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <EmailVerificationBanner />
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <main className="flex-1 pb-32 md:pb-20 lg:pb-16">
-              {children}
-            </main>
-            <Footer contactInfo={contactData} />
-          </div>
-          <WhatsAppButton />
-          <BackToTop />
-          <CookieConsent />
-          <TawkTo />
-          <ConfirmationMessage /> {/* Nuevo componente */}
-          <Toaster position="top-right" toastOptions={{ className: 'dark:bg-zinc-800 dark:text-white text-sm', duration: 3500 }} />
+          {/* 👇 Todo lo que necesita 'use client' va aquí */}
+          <ClientLayout contactInfo={contactData}>
+            {children}
+          </ClientLayout>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />

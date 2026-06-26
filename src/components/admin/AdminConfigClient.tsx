@@ -102,11 +102,11 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-6">
+      {/* Tabs scrollables en móviles */}
+      <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto pb-1">
         {TABS.map(({ id, label, icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px
+            className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap
               ${tab === id ? 'border-brand-500 text-brand-600' : 'border-transparent text-muted hover:text-foreground'}`}>
             {icon}{label}
           </button>
@@ -115,7 +115,7 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
 
       {/* Bank info */}
       {tab === 'banco' && (
-        <div className="card p-6 max-w-xl space-y-4">
+        <div className="card p-6 space-y-4 max-w-full">
           <h2 className="font-semibold mb-2">Datos de transferencia bancaria</h2>
           {field('Titular',     bank.titular,     (v) => setBank({ ...bank, titular: v }))}
           {field('CBU',         bank.cbu,         (v) => setBank({ ...bank, cbu: v }))}
@@ -132,7 +132,7 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
 
       {/* Contact info */}
       {tab === 'contacto' && (
-        <div className="card p-6 max-w-xl space-y-4">
+        <div className="card p-6 space-y-4 max-w-full">
           <h2 className="font-semibold mb-2">Información de contacto pública</h2>
           {field('Email',                contact.email,     (v) => setContact({ ...contact, email: v }))}
           {field('Teléfono',             contact.telefono,  (v) => setContact({ ...contact, telefono: v }))}
@@ -149,7 +149,7 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
 
       {/* Location info */}
       {tab === 'ubicacion' && (
-        <div className="card p-6 max-w-xl space-y-4">
+        <div className="card p-6 space-y-4 max-w-full">
           <h2 className="font-semibold mb-2">Página de Ubicación</h2>
           {field('URL del iframe de Google Maps', location.mapa_iframe_url, (v) => setLocation({ ...location, mapa_iframe_url: v }), { placeholder: 'https://www.google.com/maps/embed?...' })}
           {field('Descripción del lugar', location.descripcion, (v) => setLocation({ ...location, descripcion: v }), { multiline: true })}
@@ -171,7 +171,7 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
 
       {/* Site settings */}
       {tab === 'sitio' && (
-        <div className="max-w-xl space-y-4">
+        <div className="space-y-4 max-w-full">
           <div className="card p-6 space-y-4">
             <h2 className="font-semibold mb-2">Modo mantenimiento</h2>
             <div className="flex items-center justify-between">

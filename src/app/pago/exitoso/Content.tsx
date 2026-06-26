@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 export function PagoExitosoContent() {
   const params  = useSearchParams();
-  const orderId = params.get('orderId') ?? params.get('external_reference');
+  const orderId = params?.get('orderId') ?? params?.get('external_reference');
   const [count, setCount] = useState(3);
 
   useEffect(() => {

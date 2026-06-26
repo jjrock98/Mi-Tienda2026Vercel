@@ -31,7 +31,7 @@ export default async function OrderDetailPage({ params }: Props) {
   // 🔍 Incluimos codigo_retiro y filtramos por usuario
   const { data: order } = await supabase
     .from('orders')
-    .select('*, codigo_retiro, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
+    .select('*, codigo_retiro, rejection_reason, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
     .eq('id', params.id)
     .eq('user_id', user.id)
     .single();
@@ -61,6 +61,56 @@ export default async function OrderDetailPage({ params }: Props) {
     typeof o.codigo_retiro === 'string' && 
     o.codigo_retiro.trim().length > 0 &&
     !o.codigo_retiro.includes('undefined');
+
+  // 🎯 Función para determinar el estado de pago y su color
+  function getPaymentStatus(order: Order): { text: string; color: string } {
+    const { metodo_pago, estado, comprobante_url, comprobante_revisado, stock_descontado, rejection_reason } = order;
+
+    // === TRANSFERENCIA BANCARIA ===
+    if (metodo_pago === 'transferencia') {
+      // Comprobante rechazado (se detecta por estado cancelado + rejection_reason + comprobante subido)
+      if (estado === 'cancelado' && rejection_reason && comprobante_url) {
+        return { text: `❌ Pago rechazado: ${rejection_reason}`, color: 'text-red-600' };
+      }
+      // Comprobante aprobado (comprobante_revisado = true y estado pagado o procesando)
+      if (comprobante_revisado && ['pagado', 'procesando', 'enviado', 'entregado'].includes(estado)) {
+        return { text: '✅ Pago confirmado', color: 'text-green-600' };
+      }
+      // Comprobante subido, sin revisar
+      if (comprobante_url && !comprobante_revisado) {
+        return { text: '⏳ Comprobante en revisión', color: 'text-blue-600' };
+      }
+      // Sin comprobante
+      return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
+    }
+
+    // === MERCADO PAGO ===
+    if (metodo_pago === 'mercadopago') {
+      // Cancelado (por cualquier motivo)
+      if (estado === 'cancelado') {
+        return { text: '❌ Pago rechazado', color: 'text-red-600' };
+      }
+      // Pagado y stock descontado (confirmado)
+      if (estado === 'pagado' && stock_descontado) {
+        return { text: '✅ Pago confirmado', color: 'text-green-600' };
+      }
+      // Cupón de efectivo o procesando (pendiente_pago)
+      if (estado === 'pendiente_pago') {
+        return { text: '⏳ Procesando pago...', color: 'text-blue-600' };
+      }
+      // Pendiente sin iniciar o fallo de webhook (estado pagado sin stock)
+      if (estado === 'pendiente' || (estado === 'pagado' && !stock_descontado)) {
+        return { text: '⏳ Pendiente de confirmación', color: 'text-amber-600' };
+      }
+      // Fallback
+      return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
+    }
+
+    // Fallback para otros métodos (no debería ocurrir)
+    return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
+  }
+
+  const paymentStatus = getPaymentStatus(o);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -255,17 +305,24 @@ export default async function OrderDetailPage({ params }: Props) {
             {!isRetiro && <><p className="text-muted">{o.direccion}</p><p className="text-muted">{o.ciudad} ({o.codigo_postal})</p></>}
             {o.notas && <p className="text-muted italic text-xs border-t border-border pt-2">Nota: {o.notas}</p>}
           </div>
+
+          {/* ✅ SECCIÓN DE PAGO CON TODOS LOS ESTADOS */}
           <div className="card p-5 space-y-2 text-sm">
             <h2 className="font-semibold">Pago</h2>
             <p className="text-muted capitalize">{o.metodo_pago}</p>
-            <p className="text-muted">{o.stock_descontado ? '✅ Pago confirmado' : '⏳ Pendiente de confirmación'}</p>
+            <p className={`font-medium ${paymentStatus.color}`}>{paymentStatus.text}</p>
             {o.comprobante_url && (
-              <a href={o.comprobante_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-brand-600 hover:underline text-xs">
+              <a
+                href={o.comprobante_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-brand-600 hover:underline text-xs"
+              >
                 <ExternalLink size={12} /> Ver comprobante
               </a>
             )}
           </div>
+
           <div className="space-y-2">
             {o.estado === 'pendiente' && o.metodo_pago === 'transferencia' && !o.comprobante_url && (
               <Link href={`/subir-comprobante?orderId=${o.id}`} className="btn-primary w-full text-center text-sm py-2.5">

@@ -114,6 +114,10 @@ export function ProductModal({ product, onClose }: Props) {
     setLoading(false);
   };
 
+  // ✅ Eliminar duplicados de colores y talles con Set
+  const uniqueColores = product.colores ? [...new Set(product.colores)] : [];
+  const uniqueTalles = product.talles ? [...new Set(product.talles)] : [];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -191,11 +195,11 @@ export function ProductModal({ product, onClose }: Props) {
               </div>
             </div>
 
-            {product.colores.length > 0 && (
+            {uniqueColores.length > 0 && (
               <div>
                 <p className="text-xs font-medium mb-1.5">Colores</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {product.colores.map((c) => (
+                  {uniqueColores.map((c) => (
                     <span key={c} className="badge bg-surface-2 text-foreground">
                       {c}
                     </span>
@@ -203,11 +207,11 @@ export function ProductModal({ product, onClose }: Props) {
                 </div>
               </div>
             )}
-            {product.talles.length > 0 && (
+            {uniqueTalles.length > 0 && (
               <div>
                 <p className="text-xs font-medium mb-1.5">Talles</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {product.talles.map((t) => (
+                  {uniqueTalles.map((t) => (
                     <span key={t} className="badge bg-surface-2 text-foreground">
                       {t}
                     </span>

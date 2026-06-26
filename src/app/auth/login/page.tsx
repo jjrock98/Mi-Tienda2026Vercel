@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const router   = useRouter();
   const params   = useSearchParams();
-  const redirect = params.get('redirect') ?? '/';
+  const redirect = params?.get('redirect') ?? '/';
   const supabase = createClient();
 
   const [email,    setEmail]    = useState('');

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 export default function CompletarPerfilPage() {
   const router   = useRouter();
   const params   = useSearchParams();
-  const redirect = params.get('redirect') ?? '/';
+  const redirect = params?.get('redirect') ?? '/';
   const { user, profile, loading } = useAuth();
   const supabase = createClient();
 

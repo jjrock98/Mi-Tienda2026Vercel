@@ -133,8 +133,60 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         </button>
       </div>
 
-      {/* Products table */}
-      <div className="card overflow-hidden">
+      {/* ─── VISTA MÓVIL: CARDS ─── */}
+      <div className="block sm:hidden space-y-3">
+        {filtered.map((p) => (
+          <div key={p.id} className="card p-4 space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-surface-2 shrink-0">
+                {p.imagenes[0]
+                  ? <Image src={p.imagenes[0]} alt={p.nombre} fill className="object-cover" sizes="48px" />
+                  : <Package size={18} className="m-auto text-muted absolute inset-0" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{p.nombre}</p>
+                <p className="text-xs text-muted truncate">{p.slug}</p>
+              </div>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Stock</span>
+              <span className={`font-semibold ${p.stock_unidades < 12 ? 'text-red-500' : p.stock_unidades < 30 ? 'text-yellow-500' : 'text-green-600'}`}>
+                {p.stock_unidades} uds
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">½ Docena</span>
+              <span className="text-brand-600 font-medium">{formatPrice(p.precio_media_docena)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Docena</span>
+              <span className="text-brand-600 font-medium">{formatPrice(p.precio_docena)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <div>
+                <span className={`badge ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {p.activo ? 'Activo' : 'Inactivo'}
+                </span>
+                {p.destacado && <span className="badge bg-brand-100 text-brand-700 ml-1">★ Destacado</span>}
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => openEdit(p)} className="btn-ghost p-1.5 text-muted hover:text-brand-600">
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => handleDelete(p.id)} className="btn-ghost p-1.5 text-muted hover:text-red-500">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="card p-12 text-center text-sm text-muted">No hay productos.</div>
+        )}
+      </div>
+
+      {/* ─── VISTA DESKTOP: TABLA ─── */}
+      <div className="hidden sm:block card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-border bg-surface-2">
@@ -196,7 +248,7 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         </div>
       </div>
 
-      {/* Edit/Create modal */}
+      {/* Edit/Create modal (sin cambios) */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in"
           onClick={(e) => e.target === e.currentTarget && close()}>

@@ -17,8 +17,8 @@ const REJECTION_REASONS: Record<string, string> = {
 
 export function PagoErrorContent() {
   const params  = useSearchParams();
-  const orderId = params.get('orderId') ?? params.get('external_reference');
-  const reason  = params.get('status_detail') ?? '';
+  const orderId = params?.get('orderId') ?? params?.get('external_reference');
+  const reason  = params?.get('status_detail') ?? '';
   const msg     = REJECTION_REASONS[reason] ?? 'El pago no pudo procesarse. Podés intentar con otro método.';
 
   const go = (dest: string) => {

@@ -48,7 +48,8 @@ export function AdminMobileNav() {
             </button>
             <div className="px-3 py-4 space-y-0.5">
               {LINKS.map(({ href, icon: Icon, label }) => {
-                const active = pathname === href || (href !== '/admin' && pathname.startsWith(href));
+                // ✅ CORREGIDO: agregar ?. a pathname
+                const active = pathname === href || (href !== '/admin' && pathname?.startsWith(href));
                 return (
                   <Link
                     key={href} href={href}

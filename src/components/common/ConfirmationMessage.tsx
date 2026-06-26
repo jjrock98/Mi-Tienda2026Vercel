@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 export function ConfirmationMessage() {
   const searchParams = useSearchParams();
-  const confirmed = searchParams.get('confirmed');
+  const confirmed = searchParams?.get('confirmed');
 
   useEffect(() => {
     if (confirmed === 'true') {
