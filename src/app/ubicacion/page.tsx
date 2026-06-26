@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server';
 import { MapPin } from 'lucide-react';
 import type { LocationInfo } from '@/types';
 import type { Metadata } from 'next';
-import { WistiaVideo } from '@/components/WistiaVideo';
 
 export const metadata: Metadata = { title: 'Ubicación' };
 export const revalidate = 300;
@@ -23,7 +22,7 @@ export default async function UbicacionPage() {
         )}
       </div>
 
-      {/* Map */}
+      {/* Mapa */}
       {info?.mapa_iframe_url && (
         <section>
           <h2 className="text-xl font-semibold mb-4">Cómo llegar</h2>
@@ -39,7 +38,7 @@ export default async function UbicacionPage() {
         </section>
       )}
 
-      {/* ✅ Videos con Wistia */}
+      {/* ✅ Videos con iframe de Wistia */}
       {(info?.video1_url || info?.video2_url) && (
         <section>
           <h2 className="text-xl font-semibold mb-6">Videos del lugar</h2>
@@ -47,19 +46,29 @@ export default async function UbicacionPage() {
             {info?.video1_url && (
               <div>
                 {info.video1_titulo && <h3 className="font-medium mb-3">{info.video1_titulo}</h3>}
-                <WistiaVideo 
-                  mediaId={info.video1_url} 
-                  title={info.video1_titulo ?? 'Video 1'}
-                />
+                <div className="video-container shadow-md">
+                  <iframe
+                    src={`https://fast.wistia.net/embed/iframe/${info.video1_url}`}
+                    title={info.video1_titulo ?? 'Video 1'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
               </div>
             )}
             {info?.video2_url && (
               <div>
                 {info.video2_titulo && <h3 className="font-medium mb-3">{info.video2_titulo}</h3>}
-                <WistiaVideo 
-                  mediaId={info.video2_url} 
-                  title={info.video2_titulo ?? 'Video 2'}
-                />
+                <div className="video-container shadow-md">
+                  <iframe
+                    src={`https://fast.wistia.net/embed/iframe/${info.video2_url}`}
+                    title={info.video2_titulo ?? 'Video 2'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
               </div>
             )}
           </div>
