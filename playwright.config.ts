@@ -9,7 +9,7 @@ export default defineConfig({
   reporter:           'html',
 
   use: {
-    baseURL:           process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
+    baseURL:           process.env.PLAYWRIGHT_BASE_URL ?? 'https://mc-importados.xyz',
     trace:            'on-first-retry',
     screenshot:       'only-on-failure',
     video:            'retain-on-failure',
@@ -29,7 +29,7 @@ export default defineConfig({
 
   webServer: {
     command:           'npm run dev',
-    url:               'http://localhost:3000',
+    url:               'https://mc-importados.xyz',
     reuseExistingServer: !process.env.CI,
     timeout:           120_000,
   },

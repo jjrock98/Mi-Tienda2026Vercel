@@ -63,7 +63,7 @@ jobs:
           STRIPE_WEBHOOK_SECRET:              whsec_test_placeholder
           RESEND_API_KEY:                     re_test_placeholder
           RESEND_FROM_EMAIL:                  test@test.com
-          NEXT_PUBLIC_APP_URL:                https://localhost:3000
+          NEXT_PUBLIC_APP_URL:                https://mc-importados.xyz
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -144,12 +144,12 @@ jobs:
           STRIPE_WEBHOOK_SECRET:              ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           RESEND_API_KEY:                     ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL:                  ${{ secrets.RESEND_FROM_EMAIL }}
-          NEXT_PUBLIC_APP_URL:                http://localhost:3000
+          NEXT_PUBLIC_APP_URL:                https://mc-importados.xyz
 
       - name: Run E2E tests
         run: npx playwright test
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_BASE_URL: https://mc-importados.xyz
 
       - name: Upload E2E report
         uses: actions/upload-artifact@v4
