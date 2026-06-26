@@ -112,8 +112,12 @@ export default async function ProductoPage({ params }: Props) {
         </nav>
 
         <div className="grid gap-10 lg:grid-cols-2">
-          {/* Gallery */}
-          <ProductPageClient images={p.imagenes} nombre={p.nombre} />
+          {/* Gallery con video integrado en el carrusel - CORREGIDO: null -> undefined */}
+          <ProductPageClient 
+            images={p.imagenes} 
+            nombre={p.nombre} 
+            videoUrl={p.video_url ?? undefined} 
+          />
 
           {/* Info */}
           <div className="space-y-6">
@@ -175,23 +179,7 @@ export default async function ProductoPage({ params }: Props) {
               </div>
             )}
 
-            {/* ✅ VIDEO DEL PRODUCTO (Wistia) */}
-            {p.video_url && (
-              <div className="mt-4">
-                <h3 className="text-sm font-medium mb-2">Video del producto</h3>
-                <div className="video-container rounded-xl overflow-hidden shadow-md">
-                  <iframe
-                    src={`https://fast.wistia.net/embed/iframe/${p.video_url}`}
-                    title={`Video de ${p.nombre}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="w-full h-full"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* ✅ Fixed: usa ProductModalTrigger, no ProductModal */}
+            {/* Botón de compra (el video ahora está en el carrusel) */}
             <ProductModalTrigger product={p} triggerLabel="Elegir pack y agregar al carrito" />
 
             {/* Description */}
