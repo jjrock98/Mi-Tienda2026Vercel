@@ -84,4 +84,10 @@
   .video-container iframe {
     @apply absolute inset-0 h-full w-full border-0;
   }
+
+  /* ✅ Ocultar branding de Wistia */
+  .wistia_embed .wistia_branding,
+  .wistia_embed .wistia_logo {
+    display: none !important;
+  }
 }
