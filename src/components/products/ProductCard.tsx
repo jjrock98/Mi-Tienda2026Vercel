@@ -2,7 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Heart, Package } from 'lucide-react';
+import { Heart, Package, Play } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { cn, formatPrice } from '@/utils';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -47,22 +47,6 @@ export function ProductCard({ product: p }: Props) {
 
     // Polling cada 5 segundos
     interval = setInterval(fetchStock, 5000);
-
-    // Opcional: suscripción Realtime (comentar si no se usa)
-    // const channel = supabase
-    //   .channel(`product-${p.id}`)
-    //   .on(
-    //     'postgres_changes',
-    //     { event: 'UPDATE', schema: 'public', table: 'products', filter: `id=eq.${p.id}` },
-    //     (payload) => {
-    //       setStockReal(payload.new.stock_unidades);
-    //     }
-    //   )
-    //   .subscribe();
-    // return () => {
-    //   clearInterval(interval);
-    //   supabase.removeChannel(channel);
-    // };
 
     return () => clearInterval(interval);
   }, [p.id]);
@@ -120,6 +104,15 @@ export function ProductCard({ product: p }: Props) {
           ) : (
             <div className="flex h-full items-center justify-center text-muted">
               <Package size={40} />
+            </div>
+          )}
+
+          {/* ✅ Indicador de video (Wistia) */}
+          {p.video_url && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="rounded-full bg-black/50 p-2 backdrop-blur-sm">
+                <Play size={24} className="text-white" fill="white" />
+              </div>
             </div>
           )}
 
