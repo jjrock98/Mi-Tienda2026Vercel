@@ -147,22 +147,25 @@ export function AdminConfigClient({ initialBank, initialContact, initialLocation
         </div>
       )}
 
-      {/* Location info */}
+      {/* ✅ Location info (ACTUALIZADO para Wistia) */}
       {tab === 'ubicacion' && (
         <div className="card p-6 space-y-4 max-w-full">
           <h2 className="font-semibold mb-2">Página de Ubicación</h2>
           {field('URL del iframe de Google Maps', location.mapa_iframe_url, (v) => setLocation({ ...location, mapa_iframe_url: v }), { placeholder: 'https://www.google.com/maps/embed?...' })}
           {field('Descripción del lugar', location.descripcion, (v) => setLocation({ ...location, descripcion: v }), { multiline: true })}
+
           <div className="border-t border-border pt-4">
             <p className="text-xs font-semibold text-muted uppercase mb-3">Video 1</p>
             {field('Título del video 1', location.video1_titulo, (v) => setLocation({ ...location, video1_titulo: v }))}
-            {field('URL de YouTube (video 1)', location.video1_url, (v) => setLocation({ ...location, video1_url: v }), { placeholder: 'https://youtu.be/...' })}
+            {field('ID del video (Wistia)', location.video1_url, (v) => setLocation({ ...location, video1_url: v }), { placeholder: 'tbcgph3pe9' })}
           </div>
+
           <div className="border-t border-border pt-4">
             <p className="text-xs font-semibold text-muted uppercase mb-3">Video 2</p>
             {field('Título del video 2', location.video2_titulo, (v) => setLocation({ ...location, video2_titulo: v }))}
-            {field('URL de YouTube (video 2)', location.video2_url, (v) => setLocation({ ...location, video2_url: v }), { placeholder: 'https://youtu.be/...' })}
+            {field('ID del video (Wistia)', location.video2_url, (v) => setLocation({ ...location, video2_url: v }), { placeholder: 'tbcgph3pe9' })}
           </div>
+
           <button onClick={saveLocation} disabled={saving} className="btn-primary gap-2">
             <Save size={15} />{saving ? 'Guardando…' : 'Guardar ubicación'}
           </button>
