@@ -175,6 +175,22 @@ export default async function ProductoPage({ params }: Props) {
               </div>
             )}
 
+            {/* ✅ VIDEO DEL PRODUCTO (Wistia) */}
+            {p.video_url && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium mb-2">Video del producto</h3>
+                <div className="video-container rounded-xl overflow-hidden shadow-md">
+                  <iframe
+                    src={`https://fast.wistia.net/embed/iframe/${p.video_url}`}
+                    title={`Video de ${p.nombre}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* ✅ Fixed: usa ProductModalTrigger, no ProductModal */}
             <ProductModalTrigger product={p} triggerLabel="Elegir pack y agregar al carrito" />
 
