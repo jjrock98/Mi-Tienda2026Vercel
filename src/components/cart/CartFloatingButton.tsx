@@ -9,14 +9,12 @@ export function CartFloatingButton() {
   const items = useCartStore((state) => state.items);
   const totalItems = items.reduce((acc: number, item: CartItem) => acc + item.cantidadPacks, 0);
 
-  // No se muestra si el carrito está vacío
   if (totalItems === 0) return null;
 
   return (
     <Link
       href="/carrito"
-      // ✅ z-index aumentado a 999999 para estar por encima de Tawk.to (que usa z-index ~1000000)
-      className="fixed bottom-6 right-6 z-[999999] lg:hidden flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-transform active:scale-90"
+      className="fixed bottom-20 right-6 z-[9999999] lg:hidden flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-transform active:scale-90"
       aria-label="Ir al carrito"
     >
       <ShoppingCart size={24} />
