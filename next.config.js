@@ -21,8 +21,8 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com https://*.tawk.to",
       // Imágenes: Supabase, Google, Tawk.to, placeholders
       "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://*.tawk.to https://*.tawk.link https://via.placeholder.com",
-      // Frames: Mercado Pago, YouTube, Google, Tawk.to
-      "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://*.tawk.to",
+      // ✅ Frames: Mercado Pago, YouTube, Google, Tawk.to, Wistia
+      "frame-src 'self' https://www.mercadopago.com https://www.mercadopago.com.ar https://www.youtube.com https://www.google.com https://*.tawk.to https://fast.wistia.net https://*.wistia.com",
       // Conexiones (fetch, WebSockets, XHR): Supabase, Mercado Pago, Tawk.to, CDN
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mercadopago.com https://*.tawk.to wss://*.tawk.to https://va.tawk.to https://embed.tawk.to https://cdn.jsdelivr.net",
       "media-src 'self'",
