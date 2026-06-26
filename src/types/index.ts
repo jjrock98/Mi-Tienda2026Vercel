@@ -16,6 +16,7 @@ export interface Product {
   precio_media_docena: number; precio_docena: number;
   colores: string[]; talles: string[];
   activo: boolean; destacado: boolean;
+  video_url: string | null; // ✅ NUEVO: ID del video de Wistia
   created_at: string; updated_at: string;
 }
 
@@ -186,5 +187,3 @@ export const MP_CASH_STATUS_DETAILS = [
   'waiting_for_payment',  // Cupón generado, esperando pago
   'pending_waiting_payment',
 ] as const;
-
-export type MPStatusDetail = typeof MP_CASH_STATUS_DETAILS[number] | string;

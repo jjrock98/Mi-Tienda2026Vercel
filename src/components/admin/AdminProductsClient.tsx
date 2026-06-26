@@ -12,6 +12,7 @@ const EMPTY: Omit<Product, 'id' | 'created_at' | 'updated_at'> = {
   imagenes: [], stock_unidades: 0,
   precio_media_docena: 0, precio_docena: 0,
   colores: [], talles: [], activo: true, destacado: false,
+  video_url: null, // ✅ NUEVO
 };
 
 export function AdminProductsClient({ initialProducts }: { initialProducts: Product[] }) {
@@ -82,6 +83,7 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         talles:              editing.talles         ?? [],
         activo:              editing.activo         ?? true,
         destacado:           editing.destacado      ?? false,
+        video_url:           editing.video_url      || null, // ✅ NUEVO
       };
 
       if (isNew) {
@@ -248,7 +250,7 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         </div>
       </div>
 
-      {/* Edit/Create modal (sin cambios) */}
+      {/* Edit/Create modal (con campo de video) */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in"
           onClick={(e) => e.target === e.currentTarget && close()}>
@@ -325,6 +327,22 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
                   <label className="block text-xs font-medium mb-1">Talles (separados por coma)</label>
                   <input value={(editing.talles ?? []).join(', ')} onChange={(e) => setArrayField('talles', e.target.value)} className="input-base" />
                 </div>
+              </div>
+
+              {/* ✅ NUEVO: Campo para video de Wistia */}
+              <div>
+                <label className="block text-xs font-medium mb-1">
+                  Video del producto (ID de Wistia)
+                </label>
+                <input
+                  value={editing.video_url ?? ''}
+                  onChange={(e) => setEditing({ ...editing, video_url: e.target.value })}
+                  placeholder="Ej: tbcgph3pe9"
+                  className="input-base"
+                />
+                <p className="text-xs text-muted mt-1">
+                  Solo el ID de Wistia (ej: tbcgph3pe9). Déjalo vacío para no mostrar video.
+                </p>
               </div>
 
               <div className="flex gap-6">
