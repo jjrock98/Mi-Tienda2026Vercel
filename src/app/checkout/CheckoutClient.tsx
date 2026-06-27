@@ -6,7 +6,7 @@ import { useCartStore } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { formatPrice } from '@/utils';
 import { PACK_CONFIG } from '@/types';
-import type { MetodoPago, BankInfo } from '@/types';
+import type { MetodoPago, BankInfo, TipoPack } from '@/types';
 import { Wallet, Building2, AlertCircle, Loader2, ExternalLink, MapPin, Store, Truck, CheckCircle2, Percent, Copy } from 'lucide-react';
 import { cn } from '@/utils';
 import toast from 'react-hot-toast';
@@ -25,6 +25,17 @@ interface CheckoutClientProps {
   bankInfo: BankInfo | null;
 }
 
+// ✅ Helper seguro para obtener la etiqueta de un item del carrito
+function getItemLabel(item: any): string {
+  if (item.tipoVenta === 'curva') {
+    return `Curva de ${item.unidadesPorItem} uds ×${item.cantidadItems}`;
+  }
+  // Si es pack, aseguramos que tipoPack exista y sea válido
+  const packKey = item.tipoPack as TipoPack;
+  const packLabel = PACK_CONFIG[packKey]?.label;
+  return packLabel ? `${packLabel} ×${item.cantidadItems}` : `Pack ×${item.cantidadItems}`;
+}
+
 export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
   const router   = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -41,7 +52,8 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
   const [mpUrl,       setMpUrl]       = useState('');
   const [pendingId,   setPendingId]   = useState('');
 
-  const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadPacks), 0);
+  // ✅ Cálculo de subtotal usando cantidadItems
+  const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
   const subtotalConMP = subtotal * (1 + MP_COMMISSION);
   const envio = tipoEntrega === 'envio' ? costoEnvio : 0;
   const totalSinMP = subtotal + envio;
@@ -90,8 +102,16 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
       throw new Error('Error en el cálculo del total. Revisá tu carrito.');
     }
 
+    // ✅ Construir payload con los nuevos campos
     const payload = {
-      items: items.map((i) => ({ product_id: i.productId, tipo_pack: i.tipoPack, cantidad_packs: i.cantidadPacks })),
+      items: items.map((i) => ({
+        product_id: i.productId,
+        tipo_venta: i.tipoVenta,
+        tipo_pack: i.tipoVenta === 'pack' ? i.tipoPack : null,
+        unidades_por_item: i.unidadesPorItem,
+        cantidad_items: i.cantidadItems,
+        precio_unit: i.precioUnitario,
+      })),
       formData: { ...form, metodo_pago: metodo, tipo_entrega: tipoEntrega },
       subtotal: Number(subtotal),
       costo_envio: Number(envio),
@@ -428,12 +448,15 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
             <div className="card p-5 sticky top-24 space-y-4">
               <h2 className="font-semibold">Tu pedido</h2>
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                {items.map((item) => (
-                  <div key={`${item.productId}-${item.tipoPack}`} className="flex justify-between text-sm gap-2">
-                    <span className="text-muted line-clamp-1 flex-1">{item.nombre} · {PACK_CONFIG[item.tipoPack].label} ×{item.cantidadPacks}</span>
-                    <span className="shrink-0 font-medium">{formatPrice(item.precioUnitario * item.cantidadPacks)}</span>
-                  </div>
-                ))}
+                {items.map((item) => {
+                  const label = getItemLabel(item);
+                  return (
+                    <div key={`${item.productId}-${item.tipoVenta}-${item.tipoPack || 'curva'}`} className="flex justify-between text-sm gap-2">
+                      <span className="text-muted line-clamp-1 flex-1">{item.nombre} · {label}</span>
+                      <span className="shrink-0 font-medium">{formatPrice(item.precioUnitario * item.cantidadItems)}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="border-t border-border pt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-muted"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>

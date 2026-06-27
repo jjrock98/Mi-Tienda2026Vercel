@@ -16,7 +16,12 @@ export interface Product {
   precio_media_docena: number; precio_docena: number;
   colores: string[]; talles: string[];
   activo: boolean; destacado: boolean;
-  video_url: string | null; // ✅ NUEVO: ID del video de Wistia
+  video_url: string | null;
+  // ✅ Nuevos campos para curva
+  tipo_venta: 'pack' | 'curva';
+  unidades_curva: number | null;
+  precio_curva: number | null;
+  precio_unitario_orientativo: number | null;
   created_at: string; updated_at: string;
 }
 
@@ -79,8 +84,13 @@ export interface Order {
 
 export interface OrderItem {
   id: string; order_id: string; product_id: string;
-  tipo_pack: TipoPack; cantidad_packs: number; unidades: number;
-  precio_unit: number; subtotal: number;
+  tipo_pack: TipoPack | null; // puede ser null si es curva
+  tipo_venta: 'pack' | 'curva';
+  unidades_por_item: number; // 6, 12 o unidades_curva
+  cantidad_items: number; // número de packs o curvas
+  unidades: number; // total unidades = cantidad_items * unidades_por_item
+  precio_unit: number;
+  subtotal: number;
   nombre_snap: string; imagen_snap: string | null;
   products?: Product;
 }
@@ -135,8 +145,13 @@ export interface SiteSetting {
 export interface CartItem {
   productId: string; productSlug: string;
   nombre: string; imagen: string;
-  tipoPack: TipoPack; cantidadPacks: number;
-  unidades: number; precioUnitario: number; subtotal: number;
+  tipoVenta: 'pack' | 'curva';
+  tipoPack?: TipoPack; // solo si tipoVenta === 'pack'
+  unidadesPorItem: number; // 6, 12 o unidades_curva
+  cantidadItems: number; // número de packs o curvas
+  unidades: number; // total unidades
+  precioUnitario: number;
+  subtotal: number;
 }
 
 // ============================================================
@@ -150,7 +165,14 @@ export interface CheckoutFormData {
 }
 
 export interface CreateOrderPayload {
-  items: { product_id: string; tipo_pack: TipoPack; cantidad_packs: number }[];
+  items: {
+    product_id: string;
+    tipo_venta: 'pack' | 'curva';
+    tipo_pack?: TipoPack;
+    unidades_por_item: number;
+    cantidad_items: number;
+    precio_unit: number;
+  }[];
   formData: CheckoutFormData;
   subtotal: number; costo_envio: number; total: number;
 }

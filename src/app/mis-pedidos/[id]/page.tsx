@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice, formatDate, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, getCashCouponExpiry } from '@/utils';
 import { PACK_CONFIG } from '@/types';
-import type { Order } from '@/types';
+import type { Order, TipoPack } from '@/types';
 import { ArrowLeft, Package, ExternalLink, MapPin, Store, Navigation, Receipt, CalendarClock } from 'lucide-react';
 import { OrderCancelButton } from '@/components/orders/OrderCancelButton';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -15,7 +15,6 @@ export async function generateMetadata({ params }: Props) {
   return { title: `Pedido #${params.id.slice(0,8).toUpperCase()}` };
 }
 
-// ✅ Comentario añadido: 'pendiente_pago' se trata como sub-estado de 'pendiente' en el timeline
 const ALL_STEPS    = ['pendiente','pagado','procesando','enviado','entregado'];
 const RETIRO_STEPS = ['pendiente','pagado','procesando','entregado'];
 
@@ -23,15 +22,43 @@ function normalizeStepEstado(estado: string): string {
   return estado === 'pendiente_pago' ? 'pendiente' : estado;
 }
 
+// ✅ Helper seguro para obtener la descripción de un item de pedido
+function getItemDescription(item: any): string {
+  if (item.tipo_venta === 'curva') {
+    return `Curva de ${item.unidades_por_item} uds × ${item.cantidad_items}`;
+  } else {
+    // Si es pack, aseguramos que tipo_pack exista y sea válido
+    const packKey = item.tipo_pack as TipoPack;
+    const packLabel = PACK_CONFIG[packKey]?.label || item.tipo_pack || 'Pack';
+    return `${packLabel} × ${item.cantidad_items}`;
+  }
+}
+
 export default async function OrderDetailPage({ params }: Props) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login?redirect=/mis-pedidos');
 
-  // 🔍 Incluimos codigo_retiro y filtramos por usuario
+  // 🔍 Incluimos codigo_retiro y los nuevos campos de order_items
   const { data: order } = await supabase
     .from('orders')
-    .select('*, codigo_retiro, rejection_reason, order_items(id,tipo_pack,cantidad_packs,unidades,precio_unit,subtotal,nombre_snap,imagen_snap)')
+    .select(`
+      *,
+      codigo_retiro,
+      rejection_reason,
+      order_items(
+        id,
+        tipo_venta,
+        tipo_pack,
+        unidades_por_item,
+        cantidad_items,
+        unidades,
+        precio_unit,
+        subtotal,
+        nombre_snap,
+        imagen_snap
+      )
+    `)
     .eq('id', params.id)
     .eq('user_id', user.id)
     .single();
@@ -45,7 +72,6 @@ export default async function OrderDetailPage({ params }: Props) {
   const steps       = isRetiro ? RETIRO_STEPS : ALL_STEPS;
   const currentStep = isCancelled ? -1 : steps.indexOf(normalizeStepEstado(o.estado));
 
-  // ✅ Estados que indican pago confirmado
   const pagoConfirmado = ['pagado', 'procesando', 'enviado', 'entregado'].includes(o.estado);
 
   const admin = createAdminClient();
@@ -56,7 +82,6 @@ export default async function OrderDetailPage({ params }: Props) {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactInfo.direccion)}`
     : 'https://maps.google.com';
 
-  // Validación robusta del código
   const codigoValido = o.codigo_retiro && 
     typeof o.codigo_retiro === 'string' && 
     o.codigo_retiro.trim().length > 0 &&
@@ -68,45 +93,35 @@ export default async function OrderDetailPage({ params }: Props) {
 
     // === TRANSFERENCIA BANCARIA ===
     if (metodo_pago === 'transferencia') {
-      // Comprobante rechazado (se detecta por estado cancelado + rejection_reason + comprobante subido)
       if (estado === 'cancelado' && rejection_reason && comprobante_url) {
         return { text: `❌ Pago rechazado: ${rejection_reason}`, color: 'text-red-600' };
       }
-      // Comprobante aprobado (comprobante_revisado = true y estado pagado o procesando)
       if (comprobante_revisado && ['pagado', 'procesando', 'enviado', 'entregado'].includes(estado)) {
         return { text: '✅ Pago confirmado', color: 'text-green-600' };
       }
-      // Comprobante subido, sin revisar
       if (comprobante_url && !comprobante_revisado) {
         return { text: '⏳ Comprobante en revisión', color: 'text-blue-600' };
       }
-      // Sin comprobante
       return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
     }
 
     // === MERCADO PAGO ===
     if (metodo_pago === 'mercadopago') {
-      // Cancelado (por cualquier motivo)
       if (estado === 'cancelado') {
         return { text: '❌ Pago rechazado', color: 'text-red-600' };
       }
-      // Pagado y stock descontado (confirmado)
       if (estado === 'pagado' && stock_descontado) {
         return { text: '✅ Pago confirmado', color: 'text-green-600' };
       }
-      // Cupón de efectivo o procesando (pendiente_pago)
       if (estado === 'pendiente_pago') {
         return { text: '⏳ Procesando pago...', color: 'text-blue-600' };
       }
-      // Pendiente sin iniciar o fallo de webhook (estado pagado sin stock)
       if (estado === 'pendiente' || (estado === 'pagado' && !stock_descontado)) {
         return { text: '⏳ Pendiente de confirmación', color: 'text-amber-600' };
       }
-      // Fallback
       return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
     }
 
-    // Fallback para otros métodos (no debería ocurrir)
     return { text: '⏳ Pendiente de pago', color: 'text-amber-600' };
   }
 
@@ -166,7 +181,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* ✅ Cupón de efectivo (SOLO para Mercado Pago) */}
+      {/* Cupón de efectivo (SOLO para Mercado Pago) */}
       {o.estado === 'pendiente_pago' && o.metodo_pago === 'mercadopago' && (
         <div className="card border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/10 p-5 mb-5">
           <h2 className="font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-2 mb-3">
@@ -186,7 +201,7 @@ export default async function OrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* ✅ Comprobante en revisión (para transferencia) */}
+      {/* Comprobante en revisión (para transferencia) */}
       {o.estado === 'pendiente_pago' && o.metodo_pago === 'transferencia' && (
         <div className="card border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/10 p-5 mb-5">
           <h2 className="font-semibold text-blue-800 dark:text-blue-400 flex items-center gap-2 mb-3">
@@ -219,7 +234,6 @@ export default async function OrderDetailPage({ params }: Props) {
               ? <p>🕐 {contactInfo.horario}</p>
               : <p>🕐 Lunes a viernes de 9 a 18hs</p>}
 
-            {/* 👇 Código de retiro (solo si pago confirmado y código válido) */}
             {pagoConfirmado && codigoValido ? (
               <div className="bg-white dark:bg-zinc-800 border-2 border-dashed border-green-400 dark:border-green-600 rounded-lg p-3 my-2 text-center">
                 <p className="text-xs uppercase text-gray-500 dark:text-gray-400 tracking-wider">Código de retiro</p>
@@ -275,8 +289,10 @@ export default async function OrderDetailPage({ params }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium line-clamp-1">{item.nombre_snap}</p>
-                    <p className="text-xs text-muted">{PACK_CONFIG[item.tipo_pack]?.label} × {item.cantidad_packs} · {item.unidades} uds</p>
-                    <p className="text-xs text-muted">{formatPrice(item.precio_unit)}/pack</p>
+                    <p className="text-xs text-muted">
+                      {getItemDescription(item)} · {item.unidades} uds
+                    </p>
+                    <p className="text-xs text-muted">{formatPrice(item.precio_unit)}/item</p>
                   </div>
                   <p className="text-sm font-semibold shrink-0">{formatPrice(item.subtotal)}</p>
                 </div>

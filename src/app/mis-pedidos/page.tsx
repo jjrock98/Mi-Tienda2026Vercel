@@ -6,8 +6,21 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { formatPrice, formatDate, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/utils';
 import { PACK_CONFIG } from '@/types';
+import type { TipoPack } from '@/types';
 import { Package2, ChevronRight, ExternalLink } from 'lucide-react';
 import type { Order } from '@/types';
+
+// ✅ Helper seguro para obtener la descripción del item
+function getItemDescription(item: any): string {
+  if (item.tipo_venta === 'curva') {
+    return `Curva de ${item.unidades_por_item} uds × ${item.cantidad_items}`;
+  } else {
+    // Si es pack, aseguramos que tipo_pack exista y sea válido
+    const packKey = item.tipo_pack as TipoPack;
+    const packLabel = PACK_CONFIG[packKey]?.label || item.tipo_pack || 'Pack';
+    return `${packLabel} × ${item.cantidad_items}`;
+  }
+}
 
 export default function MisPedidosPage() {
   const router = useRouter();
@@ -22,11 +35,24 @@ export default function MisPedidosPage() {
         router.push('/auth/login?redirect=/mis-pedidos');
         return;
       }
+      
+      // ✅ Actualizar la consulta para incluir los nuevos campos
       const { data } = await supabase
         .from('orders')
-        .select('*, order_items(nombre_snap, tipo_pack, cantidad_packs, subtotal)')
+        .select(`
+          *,
+          order_items(
+            nombre_snap,
+            tipo_venta,
+            tipo_pack,
+            unidades_por_item,
+            cantidad_items,
+            subtotal
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+      
       setOrders((data ?? []) as Order[]);
       setLoading(false);
     };
@@ -89,7 +115,7 @@ export default function MisPedidosPage() {
               {(order.order_items ?? []).slice(0, 2).map((item, i) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-muted line-clamp-1 flex-1">
-                    {item.nombre_snap} · {PACK_CONFIG[item.tipo_pack]?.label ?? item.tipo_pack} ×{item.cantidad_packs}
+                    {item.nombre_snap} · {getItemDescription(item)}
                   </span>
                   <span className="shrink-0 ml-3">{formatPrice(item.subtotal)}</span>
                 </div>
@@ -115,7 +141,7 @@ export default function MisPedidosPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-brand-600 hover:underline"
-                    onClick={(e) => e.stopPropagation()} // Evita que el clic en el enlace navegue también a la tarjeta
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink size={11} /> Comprobante
                   </a>

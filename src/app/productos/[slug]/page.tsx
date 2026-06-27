@@ -60,8 +60,48 @@ export default async function ProductoPage({ params }: Props) {
 
   const p = product as Product;
 
+  // Cálculos según tipo de venta
+  const esCurva = p.tipo_venta === 'curva';
+  const unidadesCurva = esCurva ? (p.unidades_curva ?? 1) : 1;
+  const curvasDisponibles = esCurva ? Math.floor(p.stock_unidades / unidadesCurva) : 0;
+
   const maxMediaDocena = Math.floor(p.stock_unidades / 6);
   const maxDocena      = Math.floor(p.stock_unidades / 12);
+
+  // JSON-LD: incluir ofertas según tipo
+  const offers = esCurva ? [
+    {
+      '@type':       'Offer',
+      name:          `Curva de ${unidadesCurva} unidades`,
+      price:          p.precio_curva,
+      priceCurrency: 'ARS',
+      availability:  curvasDisponibles > 0
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
+    }
+  ] : [
+    {
+      '@type':       'Offer',
+      name:          'Media docena (6 unidades)',
+      price:          p.precio_media_docena,
+      priceCurrency: 'ARS',
+      availability:  p.stock_unidades >= 6
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
+    },
+    {
+      '@type':       'Offer',
+      name:          'Docena (12 unidades)',
+      price:          p.precio_docena,
+      priceCurrency: 'ARS',
+      availability:  p.stock_unidades >= 12
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
+    },
+  ];
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -70,28 +110,7 @@ export default async function ProductoPage({ params }: Props) {
     description: p.descripcion ?? p.descripcion_corta,
     image:       p.imagenes,
     sku:         p.id,
-    offers: [
-      {
-        '@type':       'Offer',
-        name:          'Media docena (6 unidades)',
-        price:          p.precio_media_docena,
-        priceCurrency: 'ARS',
-        availability:  p.stock_unidades >= 6
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-        seller: { '@type': 'Organization', name: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
-      },
-      {
-        '@type':       'Offer',
-        name:          'Docena (12 unidades)',
-        price:          p.precio_docena,
-        priceCurrency: 'ARS',
-        availability:  p.stock_unidades >= 12
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-        seller: { '@type': 'Organization', name: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
-      },
-    ],
+    offers,
   };
 
   return (
@@ -112,7 +131,7 @@ export default async function ProductoPage({ params }: Props) {
         </nav>
 
         <div className="grid gap-10 lg:grid-cols-2">
-          {/* Gallery con video integrado en el carrusel - CORREGIDO: null -> undefined */}
+          {/* Gallery con video integrado en el carrusel */}
           <ProductPageClient 
             images={p.imagenes} 
             nombre={p.nombre} 
@@ -133,22 +152,37 @@ export default async function ProductoPage({ params }: Props) {
               <p className="text-lg text-muted leading-relaxed">{p.descripcion_corta}</p>
             )}
 
-            {/* Pack prices */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Media docena', unidades: 6,  precio: p.precio_media_docena, maxPacks: maxMediaDocena },
-                { label: 'Docena',       unidades: 12, precio: p.precio_docena,       maxPacks: maxDocena      },
-              ].map(({ label, unidades, precio, maxPacks }) => (
-                <div key={label} className="card p-4 text-center">
-                  <p className="text-xs text-muted mb-1">{label}</p>
-                  <p className="text-xs text-muted mb-2">{unidades} unidades</p>
-                  <p className="text-xl font-bold text-brand-600">{formatPrice(precio)}</p>
+            {/* Precios según tipo de venta */}
+            {esCurva ? (
+              <div className="card p-4 text-center max-w-xs">
+                <p className="text-xs text-muted mb-1">Curva de {unidadesCurva} unidades</p>
+                <p className="text-2xl font-bold text-brand-600">{formatPrice(p.precio_curva ?? 0)}</p>
+                {p.precio_unitario_orientativo && (
                   <p className="text-xs text-muted mt-1">
-                    {maxPacks > 0 ? `Hasta ${maxPacks} packs` : '❌ Sin stock'}
+                    ({formatPrice(p.precio_unitario_orientativo)} por unidad)
                   </p>
-                </div>
-              ))}
-            </div>
+                )}
+                <p className="text-xs text-muted mt-2">
+                  {curvasDisponibles > 0 ? `Hasta ${curvasDisponibles} curvas` : '❌ Sin stock'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Media docena', unidades: 6,  precio: p.precio_media_docena, maxPacks: maxMediaDocena },
+                  { label: 'Docena',       unidades: 12, precio: p.precio_docena,       maxPacks: maxDocena      },
+                ].map(({ label, unidades, precio, maxPacks }) => (
+                  <div key={label} className="card p-4 text-center">
+                    <p className="text-xs text-muted mb-1">{label}</p>
+                    <p className="text-xs text-muted mb-2">{unidades} unidades</p>
+                    <p className="text-xl font-bold text-brand-600">{formatPrice(precio)}</p>
+                    <p className="text-xs text-muted mt-1">
+                      {maxPacks > 0 ? `Hasta ${maxPacks} packs` : '❌ Sin stock'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Stock indicator */}
             <div className="flex items-center gap-3 text-sm">

@@ -12,7 +12,11 @@ const EMPTY: Omit<Product, 'id' | 'created_at' | 'updated_at'> = {
   imagenes: [], stock_unidades: 0,
   precio_media_docena: 0, precio_docena: 0,
   colores: [], talles: [], activo: true, destacado: false,
-  video_url: null, // ✅ NUEVO
+  video_url: null,
+  tipo_venta: 'pack', // default
+  unidades_curva: null,
+  precio_curva: null,
+  precio_unitario_orientativo: null,
 };
 
 export function AdminProductsClient({ initialProducts }: { initialProducts: Product[] }) {
@@ -83,7 +87,11 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         talles:              editing.talles         ?? [],
         activo:              editing.activo         ?? true,
         destacado:           editing.destacado      ?? false,
-        video_url:           editing.video_url      || null, // ✅ NUEVO
+        video_url:           editing.video_url      || null,
+        tipo_venta:          editing.tipo_venta     || 'pack',
+        unidades_curva:      editing.tipo_venta === 'curva' ? Number(editing.unidades_curva) : null,
+        precio_curva:        editing.tipo_venta === 'curva' ? Number(editing.precio_curva) : null,
+        precio_unitario_orientativo: editing.tipo_venta === 'curva' ? Number(editing.precio_unitario_orientativo) : null,
       };
 
       if (isNew) {
@@ -156,20 +164,32 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
                 {p.stock_unidades} uds
               </span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">½ Docena</span>
-              <span className="text-brand-600 font-medium">{formatPrice(p.precio_media_docena)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted">Docena</span>
-              <span className="text-brand-600 font-medium">{formatPrice(p.precio_docena)}</span>
-            </div>
+            {p.tipo_venta === 'pack' ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">½ Docena</span>
+                  <span className="text-brand-600 font-medium">{formatPrice(p.precio_media_docena)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Docena</span>
+                  <span className="text-brand-600 font-medium">{formatPrice(p.precio_docena)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted">Curva ({p.unidades_curva} uds)</span>
+                <span className="text-brand-600 font-medium">{formatPrice(p.precio_curva ?? 0)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-1">
               <div>
                 <span className={`badge ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                   {p.activo ? 'Activo' : 'Inactivo'}
                 </span>
                 {p.destacado && <span className="badge bg-brand-100 text-brand-700 ml-1">★ Destacado</span>}
+                <span className="badge bg-blue-100 text-blue-700 ml-1">
+                  {p.tipo_venta === 'pack' ? 'Pack' : 'Curva'}
+                </span>
               </div>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(p)} className="btn-ghost p-1.5 text-muted hover:text-brand-600">
@@ -195,8 +215,8 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
               <tr className="text-left text-xs text-muted">
                 <th className="p-3">Producto</th>
                 <th className="p-3">Stock</th>
-                <th className="p-3">½ Docena</th>
-                <th className="p-3">Docena</th>
+                <th className="p-3">Tipo</th>
+                <th className="p-3">Precios</th>
                 <th className="p-3">Estado</th>
                 <th className="p-3 text-right">Acciones</th>
               </tr>
@@ -222,8 +242,24 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
                       {p.stock_unidades}
                     </span>
                   </td>
-                  <td className="p-3 text-brand-600 font-medium">{formatPrice(p.precio_media_docena)}</td>
-                  <td className="p-3 text-brand-600 font-medium">{formatPrice(p.precio_docena)}</td>
+                  <td className="p-3">
+                    <span className="badge bg-blue-100 text-blue-700">
+                      {p.tipo_venta === 'pack' ? 'Pack' : 'Curva'}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    {p.tipo_venta === 'pack' ? (
+                      <>
+                        <span className="text-brand-600 font-medium">{formatPrice(p.precio_media_docena)}</span>
+                        {' / '}
+                        <span className="text-brand-600 font-medium">{formatPrice(p.precio_docena)}</span>
+                      </>
+                    ) : (
+                      <span className="text-brand-600 font-medium">
+                        {formatPrice(p.precio_curva ?? 0)} ({p.unidades_curva} uds)
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3">
                     <span className={`badge ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {p.activo ? 'Activo' : 'Inactivo'}
@@ -250,7 +286,7 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
         </div>
       </div>
 
-      {/* Edit/Create modal (con campo de video) */}
+      {/* Edit/Create modal con campos para curva */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in"
           onClick={(e) => e.target === e.currentTarget && close()}>
@@ -303,20 +339,48 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
                   rows={3} className="input-base resize-none" />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium mb-1">Stock (unidades)</label>
                   <input type="number" min="0" value={editing.stock_unidades ?? 0} onChange={setField('stock_unidades')} className="input-base" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1">Precio ½ docena</label>
-                  <input type="number" min="0" step="0.01" value={editing.precio_media_docena ?? 0} onChange={setField('precio_media_docena')} className="input-base" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Precio docena</label>
-                  <input type="number" min="0" step="0.01" value={editing.precio_docena ?? 0} onChange={setField('precio_docena')} className="input-base" />
+                  <label className="block text-xs font-medium mb-1">Tipo de venta</label>
+                  <select value={editing.tipo_venta ?? 'pack'} onChange={setField('tipo_venta')} className="input-base">
+                    <option value="pack">Pack (media docena / docena)</option>
+                    <option value="curva">Curva (unidades fijas)</option>
+                  </select>
                 </div>
               </div>
+
+              {editing.tipo_venta === 'pack' ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Precio ½ docena</label>
+                    <input type="number" min="0" step="0.01" value={editing.precio_media_docena ?? 0} onChange={setField('precio_media_docena')} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Precio docena</label>
+                    <input type="number" min="0" step="0.01" value={editing.precio_docena ?? 0} onChange={setField('precio_docena')} className="input-base" />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Unidades por curva</label>
+                    <input type="number" min="1" value={editing.unidades_curva ?? ''} onChange={setField('unidades_curva')} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Precio de la curva</label>
+                    <input type="number" min="0" step="0.01" value={editing.precio_curva ?? ''} onChange={setField('precio_curva')} className="input-base" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Precio unitario (orientativo)</label>
+                    <input type="number" min="0" step="0.01" value={editing.precio_unitario_orientativo ?? ''} onChange={setField('precio_unitario_orientativo')} className="input-base" />
+                    <p className="text-xs text-muted mt-1">Opcional, solo para mostrar</p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -329,7 +393,7 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
                 </div>
               </div>
 
-              {/* ✅ NUEVO: Campo para video de Wistia */}
+              {/* Campo para video de Wistia */}
               <div>
                 <label className="block text-xs font-medium mb-1">
                   Video del producto (ID de Wistia)

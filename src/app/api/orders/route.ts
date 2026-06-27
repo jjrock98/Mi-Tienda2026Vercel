@@ -1,221 +1,223 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { 
-  sendOrderConfirmationEmail,
-  sendAdminNewOrderEmail,
+import {
+  sendOrderStatusEmail,
+  sendOrderProcessingEmail,
+  sendOrderShippedEmail,
+  sendOrderDeliveredEmail,
+  sendOrderCancelledEmail,
+  sendAdminOrderStatusEmail,
 } from '@/lib/email';
-import { createOrderSchema, parseBody } from '@/lib/validations';
-import { rateLimiters } from '@/lib/rateLimit';
-import type { TipoPack } from '@/types';
-import { MP_COMMISSION } from '@/lib/constants';
-import { randomBytes } from 'crypto';
 
-// ── Tipos internos ────────────────────────────────────────────────────────────
-interface DBProduct {
-  id: string;
-  nombre: string;
-  imagenes: string[];
-  precio_media_docena: number;
-  precio_docena: number;
-  stock_unidades: number;
-  activo: boolean;
+// ─── Helper para verificar admin ───
+async function verifyAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+  return profile?.rol === 'admin' ? user : null;
 }
 
-interface ItemWithProduct {
-  item:      { product_id: string; tipo_pack: TipoPack; cantidad_packs: number };
-  product:   DBProduct;
-  unidades:  number;
-  precioUnit: number;
-  orderItem: {
-    product_id:    string;
-    tipo_pack:     TipoPack;
-    cantidad_packs: number;
-    unidades:      number;
-    precio_unit:   number;
-    subtotal:      number;
-    nombre_snap:   string;
-    imagen_snap:   string | null;
-  };
-}
-
-// ── Generación segura de código de retiro (CORREGIDO) ──────────────────────
-function generarCodigoRetiro(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = randomBytes(8);
-  let codigo = '';
-  for (let i = 0; i < 8; i++) {
-    const index = bytes[i] % chars.length;
-    codigo += chars[index];
-  }
-  return codigo;
-}
-
+// ─── POST: Crear nueva orden ───
 export async function POST(req: NextRequest) {
-  const limited = rateLimiters.orders(req);
-  if (limited) return limited;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  const body = await req.json();
+  const { items, formData, subtotal, costo_envio, total } = body;
 
-    const rawBody = await req.json();
-    const { data: body, error: validationError } = parseBody(createOrderSchema, rawBody);
-    if (validationError) return NextResponse.json({ error: validationError }, { status: 422 });
-    if (!body) return NextResponse.json({ error: 'Datos inválidos' }, { status: 422 });
+  // ── Validaciones ──
+  if (!items || items.length === 0) {
+    return NextResponse.json({ error: 'El carrito está vacío' }, { status: 400 });
+  }
+  if (!formData?.nombre || !formData?.email || !formData?.telefono) {
+    return NextResponse.json({ error: 'Faltan datos personales' }, { status: 400 });
+  }
+  if (formData.tipo_entrega === 'envio' && (!formData.direccion || !formData.ciudad || !formData.codigo_postal)) {
+    return NextResponse.json({ error: 'Faltan datos de envío' }, { status: 400 });
+  }
 
-    const { items, formData, subtotal, costo_envio, total } = body;
-    const admin = createAdminClient();
+  // ── Obtener session_id para liberar reservas ──
+  const sessionId = req.headers.get('x-session-id') || '';
 
-    // Validar stock y calcular precios en el servidor
-    const itemsWithProducts: ItemWithProduct[] = await Promise.all(
-      items.map(async (item) => {
-        const { data: product } = await admin
-          .from('products')
-          .select('id, nombre, imagenes, precio_media_docena, precio_docena, stock_unidades, activo')
-          .eq('id', item.product_id)
-          .single();
+  // ── Calcular unidades totales por producto ──
+  const unidadesPorProducto: Record<string, number> = {};
+  for (const item of items) {
+    const unidades = item.unidades_por_item * item.cantidad_items;
+    unidadesPorProducto[item.product_id] = (unidadesPorProducto[item.product_id] || 0) + unidades;
+  }
 
-        if (!product)        throw new Error(`Producto no encontrado: ${item.product_id}`);
-        if (!product.activo) throw new Error(`"${product.nombre}" ya no está disponible`);
+  // ── Obtener datos de los productos ──
+  const productIds = Object.keys(unidadesPorProducto);
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, nombre, imagenes, stock_unidades')
+    .in('id', productIds);
 
-        const unidades = item.cantidad_packs * (item.tipo_pack === 'media_docena' ? 6 : 12);
-        if (product.stock_unidades < unidades) {
-          throw new Error(
-            `Stock insuficiente para "${product.nombre}": hay ${product.stock_unidades} unidades, no tenemos: ${unidades}`
-          );
-        }
+  if (productsError) {
+    return NextResponse.json({ error: productsError.message }, { status: 500 });
+  }
 
-        const precioUnit = item.tipo_pack === 'media_docena'
-          ? product.precio_media_docena
-          : product.precio_docena;
+  const productMap = new Map(products.map((p) => [p.id, p]));
 
-        return {
-          item,
-          product,
-          unidades,
-          precioUnit,
-          orderItem: {
-            product_id:     item.product_id,
-            tipo_pack:      item.tipo_pack,
-            cantidad_packs: item.cantidad_packs,
-            unidades,
-            precio_unit:    precioUnit,
-            subtotal:       item.cantidad_packs * precioUnit,
-            nombre_snap:    product.nombre,
-            imagen_snap:    product.imagenes?.[0] ?? null,
-          },
-        };
-      })
-    );
-
-    // Validación server-side de precios (evita price tampering)
-    const expectedSubtotal = itemsWithProducts.reduce(
-      (acc: number, { item, precioUnit }: ItemWithProduct) =>
-        acc + item.cantidad_packs * precioUnit,
-      0
-    );
-    if (Math.abs(expectedSubtotal - subtotal) > 1) {
-      return NextResponse.json(
-        { error: 'Los precios han cambiado. Por favor, actualizá el carrito.' },
-        { status: 409 }
-      );
+  // ── Verificar stock ──
+  for (const [productId, unidadesNecesarias] of Object.entries(unidadesPorProducto)) {
+    const product = productMap.get(productId);
+    if (!product) {
+      return NextResponse.json({ error: `Producto ${productId} no encontrado` }, { status: 400 });
     }
-
-    // ✅ Validación del total según método de pago
-    const metodoPago = formData.metodo_pago;
-    let totalEsperado = subtotal + costo_envio;
-    if (metodoPago === 'mercadopago') {
-      totalEsperado = subtotal * (1 + MP_COMMISSION) + costo_envio;
+    if (product.stock_unidades < unidadesNecesarias) {
+      return NextResponse.json({
+        error: `Stock insuficiente para ${product.nombre}. Disponible: ${product.stock_unidades}, necesario: ${unidadesNecesarias}`
+      }, { status: 400 });
     }
+  }
 
-    if (Math.abs(totalEsperado - total) > 0.01) {
-      console.warn('⚠️ Total manipulado:', { esperado: totalEsperado, recibido: total, metodo: metodoPago });
-      return NextResponse.json(
-        { error: 'El total no coincide. Por favor, recargá la página y volvé a intentar.' },
-        { status: 409 }
-      );
-    }
+  // ── Insertar la orden ──
+  const orderPayload = {
+    user_id: user?.id || null,
+    email: formData.email,
+    nombre: formData.nombre,
+    telefono: formData.telefono || null,
+    direccion: formData.tipo_entrega === 'envio' ? formData.direccion : 'Retiro en local',
+    ciudad: formData.tipo_entrega === 'envio' ? formData.ciudad : 'Retiro en local',
+    codigo_postal: formData.tipo_entrega === 'envio' ? formData.codigo_postal : '0000',
+    estado: 'pendiente',
+    metodo_pago: formData.metodo_pago,
+    tipo_entrega: formData.tipo_entrega,
+    subtotal,
+    costo_envio,
+    total,
+    notas: formData.notas || null,
+    stock_descontado: false,
+  };
 
-    // ── Insertar orden (con código de retiro, con reintentos) ──
-    let codigoRetiro: string | null = null;
-    if (formData.tipo_entrega === 'retiro') {
-      let intentos = 0;
-      while (intentos < 5) {
-        const codigoGenerado = generarCodigoRetiro();
-        // Verificar que no exista ya en la base de datos
-        const { data: existente } = await admin
-          .from('orders')
-          .select('id')
-          .eq('codigo_retiro', codigoGenerado)
-          .maybeSingle();
-        if (!existente) {
-          codigoRetiro = codigoGenerado;
-          break;
-        }
-        intentos++;
-      }
-      // Fallback: si por alguna razón falla la generación única
-      if (!codigoRetiro) {
-        codigoRetiro = Date.now().toString(36).toUpperCase().slice(-8);
-      }
-    }
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .insert(orderPayload)
+    .select()
+    .single();
 
-    const { data: order, error: orderErr } = await admin.from('orders').insert({
-      user_id:       user.id,
-      email:         formData.email,
-      nombre:        formData.nombre,
-      telefono:      formData.telefono,
-      direccion:     formData.tipo_entrega === 'retiro' ? 'Retiro en local' : formData.direccion,
-      ciudad:        formData.tipo_entrega === 'retiro' ? 'Retiro en local' : formData.ciudad,
-      codigo_postal: formData.tipo_entrega === 'retiro' ? '0000'            : formData.codigo_postal,
-      notas:         formData.notas ?? null,
-      metodo_pago:   formData.metodo_pago,
-      tipo_entrega:  formData.tipo_entrega,
-      subtotal,
-      costo_envio,
-      total: totalEsperado,
-      estado: 'pendiente',
-      codigo_retiro: codigoRetiro,
-    }).select().single();
+  if (orderError) {
+    return NextResponse.json({ error: orderError.message }, { status: 500 });
+  }
 
-    if (orderErr) throw orderErr;
+  // ── Insertar items de la orden ──
+  const orderItems = items.map((item: any) => {
+    const product = productMap.get(item.product_id);
+    return {
+      order_id: order.id,
+      product_id: item.product_id,
+      tipo_venta: item.tipo_venta,
+      tipo_pack: item.tipo_pack || null,
+      unidades_por_item: item.unidades_por_item,
+      cantidad_items: item.cantidad_items,
+      unidades: item.unidades_por_item * item.cantidad_items,
+      precio_unit: item.precio_unit,
+      subtotal: item.precio_unit * item.cantidad_items,
+      nombre_snap: product?.nombre || 'Producto',
+      imagen_snap: product?.imagenes?.[0] || null,
+    };
+  });
 
-    const { error: itemsErr } = await admin.from('order_items').insert(
-      itemsWithProducts.map(({ orderItem }: ItemWithProduct) => ({
-        order_id: order.id,
-        ...orderItem,
-      }))
-    );
-    if (itemsErr) throw itemsErr;
+  const { error: itemsError } = await supabase
+    .from('order_items')
+    .insert(orderItems);
 
-    // ── Email no bloqueante ──
-    admin
-      .from('orders')
-      .select('*, order_items(*)')
-      .eq('id', order.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          const fullOrder = data as Parameters<typeof sendOrderConfirmationEmail>[0];
-          sendOrderConfirmationEmail(fullOrder).catch(console.error);
-          sendAdminNewOrderEmail(fullOrder).catch(console.error);
-        }
-      });
+  if (itemsError) {
+    // Si falla, eliminar la orden para no dejar datos huérfanos
+    await supabase.from('orders').delete().eq('id', order.id);
+    return NextResponse.json({ error: itemsError.message }, { status: 500 });
+  }
 
-    // 🔥 LIBERAR RESERVAS DE ESTA SESIÓN
-    const sessionId = req.headers.get('x-session-id') || 'unknown';
-    await admin.rpc('liberar_reserva_carrito', {
+  // ── Liberar reservas del carrito ──
+  if (sessionId) {
+    await supabase.rpc('liberar_reserva_carrito', {
       p_session_id: sessionId,
     });
-
-    return NextResponse.json({ data: order });
-  } catch (err: unknown) {
-    console.error('Order error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Error al crear el pedido' },
-      { status: 500 }
-    );
   }
+
+  // ── Enviar correo de confirmación ──
+  try {
+    await sendOrderStatusEmail(order);
+  } catch (err) {
+    console.error('Error enviando correo de confirmación:', err);
+  }
+
+  return NextResponse.json({ data: order });
+}
+
+// ─── PATCH: Actualizar estado de orden (admin) ───
+export async function PATCH(req: NextRequest) {
+  const adminUser = await verifyAdmin();
+  if (!adminUser) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+  const { orderId, estado, tracking_number } = await req.json();
+  if (!orderId) return NextResponse.json({ error: 'orderId requerido' }, { status: 400 });
+  if (!estado) return NextResponse.json({ error: 'estado requerido' }, { status: 400 });
+
+  const admin = createAdminClient();
+
+  // Obtener el pedido actual para conocer el estado anterior
+  const { data: currentOrder } = await admin
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('id', orderId)
+    .single();
+
+  if (!currentOrder) {
+    return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
+  }
+
+  const oldStatus = currentOrder.estado;
+
+  // Actualizar el estado
+  const { data: order, error } = await admin
+    .from('orders')
+    .update({
+      estado,
+      updated_at: new Date().toISOString(),
+      ...(tracking_number ? { tracking_number } : {}),
+    })
+    .eq('id', orderId)
+    .select('*, order_items(*)')
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // ── Enviar correos según el nuevo estado ──
+  if (order && oldStatus !== estado) {
+    try {
+      // Notificar al cliente según el estado
+      switch (estado) {
+        case 'procesando':
+          await sendOrderProcessingEmail(order);
+          break;
+        case 'enviado':
+          await sendOrderShippedEmail(order, tracking_number || undefined);
+          break;
+        case 'entregado':
+          await sendOrderDeliveredEmail(order);
+          break;
+        case 'cancelado':
+          await sendOrderCancelledEmail(order);
+          break;
+        case 'pagado':
+          // Ya se envía desde el webhook de MP, pero lo dejamos por si acaso
+          break;
+        default:
+          await sendOrderStatusEmail(order);
+          break;
+      }
+
+      // Notificar al administrador del cambio de estado
+      await sendAdminOrderStatusEmail(order, oldStatus, estado);
+
+    } catch (err) {
+      console.error('Error enviando correos de notificación:', err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, data: order });
 }

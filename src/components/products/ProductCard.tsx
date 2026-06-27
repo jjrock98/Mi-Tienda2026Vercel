@@ -48,6 +48,10 @@ export function ProductCard({ product: p }: Props) {
     return () => clearInterval(interval);
   }, [p.id]);
 
+  const esCurva = p.tipo_venta === 'curva';
+  const unidadesCurva = esCurva ? (p.unidades_curva ?? 1) : 1;
+  const curvasDisponibles = esCurva ? Math.floor(stockReal / unidadesCurva) : 0;
+
   const maxMediaDocena = Math.floor(stockReal / 6);
   const maxDocena      = Math.floor(stockReal / 12);
   const sinStock       = stockReal === 0;
@@ -201,21 +205,34 @@ export function ProductCard({ product: p }: Props) {
           )}
 
           <div className="mt-3 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted">½ docena (6)</span>
-              <span className="text-sm font-bold text-brand-600">{formatPrice(p.precio_media_docena)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted">Docena (12)</span>
-              <span className="text-sm font-bold text-brand-600">{formatPrice(p.precio_docena)}</span>
-            </div>
+            {esCurva ? (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted">Curva de {unidadesCurva} uds</span>
+                <span className="text-sm font-bold text-brand-600">{formatPrice(p.precio_curva ?? 0)}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">½ docena (6)</span>
+                  <span className="text-sm font-bold text-brand-600">{formatPrice(p.precio_media_docena)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">Docena (12)</span>
+                  <span className="text-sm font-bold text-brand-600">{formatPrice(p.precio_docena)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <Package size={11} />
             <span>
               Stock: <span className={sinStock ? 'text-red-500 font-semibold' : ''}>{stockReal}</span>
-              {' '}— hasta {maxMediaDocena} ½doc / {maxDocena} doc
+              {' '}— {esCurva ? (
+                `máx. ${curvasDisponibles} curvas`
+              ) : (
+                `hasta ${maxMediaDocena} ½doc / ${maxDocena} doc`
+              )}
             </span>
           </div>
 

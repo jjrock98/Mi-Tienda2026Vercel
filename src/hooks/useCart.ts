@@ -10,9 +10,9 @@ interface CartStore {
   costoEnvio: number;
   zonaEnvio: string;
 
-  addItem: (item: Omit<CartItem, 'subtotal'>) => Promise<{ success: boolean; error?: string }>;
-  removeItem: (productId: string, tipoPack: TipoPack) => Promise<void>;
-  updateQuantity: (productId: string, tipoPack: TipoPack, cantidadPacks: number) => Promise<{ success: boolean; error?: string }>;
+  addItem: (item: Omit<CartItem, 'subtotal' | 'unidades'> & { unidades?: number }) => Promise<{ success: boolean; error?: string }>;
+  removeItem: (productId: string, tipoVenta: 'pack' | 'curva', tipoPack?: TipoPack) => Promise<void>;
+  updateQuantity: (productId: string, tipoVenta: 'pack' | 'curva', tipoPack: TipoPack | undefined, cantidadItems: number) => Promise<{ success: boolean; error?: string }>;
   clearCart: () => Promise<void>;
   setShipping: (cp: string, costo: number, zona: string) => void;
 
@@ -30,7 +30,6 @@ function getSessionId(): string {
   return sessionId;
 }
 
-// ✅ Función para obtener el stock actual
 async function fetchStock(productId: string): Promise<number> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -57,6 +56,9 @@ export const useCartStore = create<CartStore>()(
         const supabase = createClient();
         const sessionId = getSessionId();
 
+        // Calcular unidades si no vienen
+        const unidades = item.unidades ?? (item.cantidadItems * item.unidadesPorItem);
+
         // 1. Obtener stock actual
         const stockActual = await fetchStock(item.productId);
         if (stockActual === -1) {
@@ -66,13 +68,12 @@ export const useCartStore = create<CartStore>()(
           return { success: false, error: 'Producto sin stock' };
         }
 
-        // 2. Calcular unidades totales de este producto en el carrito (todos los packs)
+        // 2. Calcular unidades totales de este producto en el carrito (todos los ítems)
         const unidadesExistentes = get().items
           .filter((i) => i.productId === item.productId)
           .reduce((sum, i) => sum + i.unidades, 0);
 
-        const unidadesPorPack = item.tipoPack === 'media_docena' ? 6 : 12;
-        const nuevasUnidades = unidadesExistentes + (item.cantidadPacks * unidadesPorPack);
+        const nuevasUnidades = unidadesExistentes + unidades;
 
         console.log(`📊 Stock: ${stockActual}, Existentes: ${unidadesExistentes}, Nuevas: ${nuevasUnidades}`);
 
@@ -98,27 +99,39 @@ export const useCartStore = create<CartStore>()(
 
         // 5. Actualizar el estado del carrito
         set((state) => {
-          const existingItem = state.items.find(
-            (i) => i.productId === item.productId && i.tipoPack === item.tipoPack
-          );
+          // Buscar ítem existente con misma clave (productId + tipoVenta + tipoPack si aplica)
+          const existingItem = state.items.find((i) => {
+            if (i.productId !== item.productId) return false;
+            if (i.tipoVenta !== item.tipoVenta) return false;
+            if (item.tipoVenta === 'pack' && i.tipoPack !== item.tipoPack) return false;
+            return true;
+          });
+
           if (existingItem) {
             return {
-              items: state.items.map((i) =>
-                i.productId === item.productId && i.tipoPack === item.tipoPack
-                  ? {
-                      ...i,
-                      cantidadPacks: i.cantidadPacks + item.cantidadPacks,
-                      unidades: i.unidades + (item.cantidadPacks * unidadesPorPack),
-                      subtotal: (i.cantidadPacks + item.cantidadPacks) * i.precioUnitario,
-                    }
-                  : i
-              ),
+              items: state.items.map((i) => {
+                const same = i.productId === item.productId &&
+                             i.tipoVenta === item.tipoVenta &&
+                             (item.tipoVenta === 'pack' ? i.tipoPack === item.tipoPack : true);
+                if (same) {
+                  const newCantidad = i.cantidadItems + item.cantidadItems;
+                  const newUnidades = i.unidades + unidades;
+                  return {
+                    ...i,
+                    cantidadItems: newCantidad,
+                    unidades: newUnidades,
+                    subtotal: newCantidad * i.precioUnitario,
+                  };
+                }
+                return i;
+              }),
             };
           }
+
           const newItem: CartItem = {
             ...item,
-            unidades: item.cantidadPacks * unidadesPorPack,
-            subtotal: item.cantidadPacks * item.precioUnitario,
+            unidades,
+            subtotal: item.cantidadItems * item.precioUnitario,
           };
           return { items: [...state.items, newItem] };
         });
@@ -126,11 +139,17 @@ export const useCartStore = create<CartStore>()(
         return { success: true };
       },
 
-      removeItem: async (productId, tipoPack) => {
+      removeItem: async (productId, tipoVenta, tipoPack) => {
         const supabase = createClient();
         const sessionId = getSessionId();
 
-        const item = get().items.find(i => i.productId === productId && i.tipoPack === tipoPack);
+        const item = get().items.find((i) => {
+          if (i.productId !== productId) return false;
+          if (i.tipoVenta !== tipoVenta) return false;
+          if (tipoVenta === 'pack' && i.tipoPack !== tipoPack) return false;
+          return true;
+        });
+
         if (item) {
           await supabase.rpc('liberar_reserva_carrito', {
             p_session_id: sessionId,
@@ -141,15 +160,18 @@ export const useCartStore = create<CartStore>()(
         }
 
         set((state) => ({
-          items: state.items.filter(
-            (i) => !(i.productId === productId && i.tipoPack === tipoPack)
-          ),
+          items: state.items.filter((i) => {
+            if (i.productId !== productId) return true;
+            if (i.tipoVenta !== tipoVenta) return true;
+            if (tipoVenta === 'pack' && i.tipoPack !== tipoPack) return true;
+            return false;
+          }),
         }));
       },
 
-      updateQuantity: async (productId, tipoPack, cantidadPacks) => {
-        if (cantidadPacks <= 0) {
-          await get().removeItem(productId, tipoPack);
+      updateQuantity: async (productId, tipoVenta, tipoPack, cantidadItems) => {
+        if (cantidadItems <= 0) {
+          await get().removeItem(productId, tipoVenta, tipoPack);
           return { success: true };
         }
 
@@ -162,24 +184,38 @@ export const useCartStore = create<CartStore>()(
           return { success: false, error: 'Error al verificar stock' };
         }
 
-        const unidadesPorPack = tipoPack === 'media_docena' ? 6 : 12;
-        const nuevasUnidades = cantidadPacks * unidadesPorPack;
+        // 2. Encontrar el ítem actual para saber unidades por item
+        const item = get().items.find((i) => {
+          if (i.productId !== productId) return false;
+          if (i.tipoVenta !== tipoVenta) return false;
+          if (tipoVenta === 'pack' && i.tipoPack !== tipoPack) return false;
+          return true;
+        });
 
-        // 2. Calcular unidades de otros items del mismo producto (excluyendo el que se actualiza)
+        if (!item) return { success: false, error: 'Ítem no encontrado' };
+
+        const nuevasUnidades = cantidadItems * item.unidadesPorItem;
+
+        // 3. Calcular unidades de otros items del mismo producto (excluyendo el que se actualiza)
         const otrasUnidades = get().items
-          .filter((i) => i.productId === productId && i.tipoPack !== tipoPack)
+          .filter((i) => {
+            if (i.productId !== productId) return false;
+            if (i.tipoVenta !== tipoVenta) return false;
+            if (tipoVenta === 'pack' && i.tipoPack !== tipoPack) return false;
+            return true;
+          })
           .reduce((sum, i) => sum + i.unidades, 0);
 
         const totalUnidades = otrasUnidades + nuevasUnidades;
 
         console.log(`🔄 Stock: ${stockActual}, Otras: ${otrasUnidades}, Total: ${totalUnidades}`);
 
-        // 3. Validar que no supere el stock
+        // 4. Validar que no supere el stock
         if (totalUnidades > stockActual) {
           return { success: false, error: `Stock insuficiente. Disponible: ${stockActual} unidades` };
         }
 
-        // 4. Reservar el nuevo total
+        // 5. Reservar el nuevo total
         const { data: reserva, error: reservaError } = await supabase.rpc('reservar_stock_carrito', {
           p_product_id: productId,
           p_unidades: totalUnidades,
@@ -192,18 +228,22 @@ export const useCartStore = create<CartStore>()(
           return { success: false, error: errorMsg };
         }
 
-        // 5. Actualizar estado
+        // 6. Actualizar estado
         set((state) => ({
-          items: state.items.map((i) =>
-            i.productId === productId && i.tipoPack === tipoPack
-              ? {
-                  ...i,
-                  cantidadPacks,
-                  unidades: nuevasUnidades,
-                  subtotal: cantidadPacks * i.precioUnitario,
-                }
-              : i
-          ),
+          items: state.items.map((i) => {
+            const same = i.productId === productId &&
+                         i.tipoVenta === tipoVenta &&
+                         (tipoVenta === 'pack' ? i.tipoPack === tipoPack : true);
+            if (same) {
+              return {
+                ...i,
+                cantidadItems,
+                unidades: nuevasUnidades,
+                subtotal: cantidadItems * i.precioUnitario,
+              };
+            }
+            return i;
+          }),
         }));
 
         return { success: true };
@@ -231,7 +271,7 @@ export const useCartStore = create<CartStore>()(
         return get().subtotal + get().costoEnvio;
       },
       get itemCount() {
-        return get().items.reduce((acc, i) => acc + i.cantidadPacks, 0);
+        return get().items.reduce((acc, i) => acc + i.cantidadItems, 0);
       },
     }),
     {

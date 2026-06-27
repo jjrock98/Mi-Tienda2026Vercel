@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { formatPrice, formatDate, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/utils';
 import { PACK_CONFIG } from '@/types';
-import type { Order, OrderEstado } from '@/types';
+import type { Order, OrderEstado, TipoPack } from '@/types';
 import {
   ExternalLink, ChevronDown, Search, CheckCircle, XCircle,
   FileCheck, Clock, Loader2, AlertTriangle,
@@ -13,6 +13,17 @@ import toast from 'react-hot-toast';
 const ESTADOS: OrderEstado[] = ['pendiente','pendiente_pago','pagado','procesando','enviado','entregado','cancelado'];
 
 interface Props { initialOrders: Order[] }
+
+// ✅ Helper para obtener descripción de un item de pedido
+function getItemDescription(item: any): string {
+  if (item.tipo_venta === 'curva') {
+    return `Curva de ${item.unidades_por_item} uds`;
+  }
+  // Si es pack, aseguramos que tipo_pack exista
+  const packKey = item.tipo_pack as TipoPack;
+  const packLabel = PACK_CONFIG[packKey]?.label || item.tipo_pack || 'Pack';
+  return packLabel;
+}
 
 export function AdminOrdersClient({ initialOrders }: Props) {
   const [orders,   setOrders]   = useState<Order[]>(initialOrders);
@@ -199,7 +210,6 @@ export function AdminOrdersClient({ initialOrders }: Props) {
       <div className="space-y-3">
         {effectiveFilter.map((order) => {
           // ✅ CONDICIÓN MEJORADA: muestra botones para comprobantes sin revisar
-          // en estado pendiente O pendiente_pago (o cualquier estado no final)
           const hasComprobanteToReview =
             order.metodo_pago === 'transferencia' &&
             order.comprobante_url &&
@@ -307,17 +317,22 @@ export function AdminOrdersClient({ initialOrders }: Props) {
                     )}
                   </div>
 
-                  {/* Items */}
+                  {/* Items - ✅ CORREGIDO para curvas */}
                   <div>
                     <p className="text-xs text-muted mb-2">Productos</p>
-                    {(order.order_items ?? []).map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm py-1 border-b border-border last:border-0">
-                        <span className="text-muted">
-                          {item.nombre_snap} · {PACK_CONFIG[item.tipo_pack]?.label} ×{item.cantidad_packs} ({item.unidades} uds)
-                        </span>
-                        <span>{formatPrice(item.subtotal)}</span>
-                      </div>
-                    ))}
+                    {(order.order_items ?? []).map((item: any) => {
+                      // ✅ Usamos cantidad_items o fallback a cantidad_packs
+                      const cantidad = item.cantidad_items ?? item.cantidad_packs ?? 0;
+                      const descripcion = getItemDescription(item);
+                      return (
+                        <div key={item.id} className="flex justify-between text-sm py-1 border-b border-border last:border-0">
+                          <span className="text-muted">
+                            {item.nombre_snap} · {descripcion} ×{cantidad} ({item.unidades} uds)
+                          </span>
+                          <span>{formatPrice(item.subtotal)}</span>
+                        </div>
+                      );
+                    })}
                     <div className="flex justify-between font-bold mt-2">
                       <span>Total</span>
                       <span className="text-brand-600">{formatPrice(order.total)}</span>
@@ -417,29 +432,32 @@ export function AdminOrdersClient({ initialOrders }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium mb-1.5">Motivo del rechazo *</label>
+              <label className="block text-xs font-medium mb-1">Motivo del rechazo *</label>
               <textarea
                 value={rejectMotivo}
                 onChange={(e) => setRejectMotivo(e.target.value)}
-                placeholder="Ej: El comprobante no es legible, el monto no corresponde, la fecha es incorrecta…"
+                placeholder="Ej: Comprobante ilegible, monto incorrecto, etc."
                 rows={3}
-                className="input-base resize-none text-sm"
+                className="input-base w-full resize-none"
                 autoFocus
               />
-              <p className="text-xs text-muted mt-1">Este texto se enviará al cliente.</p>
             </div>
 
-            <div className="flex gap-3">
-              <button onClick={() => setRejectModal(null)} className="btn-secondary flex-1 text-sm">
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => { setRejectModal(null); setRejectMotivo(''); }}
+                className="btn-secondary flex-1"
+              >
                 Cancelar
               </button>
               <button
                 onClick={rejectTransfer}
-                disabled={!rejectMotivo.trim() || !!loading}
-                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 disabled:opacity-60 flex items-center justify-center gap-2"
+                disabled={!rejectMotivo.trim() || loading === rejectModal.orderId}
+                className="btn-danger flex-1"
               >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-                Rechazar y notificar
+                {loading === rejectModal.orderId
+                  ? <Loader2 size={16} className="animate-spin mx-auto" />
+                  : 'Rechazar'}
               </button>
             </div>
           </div>

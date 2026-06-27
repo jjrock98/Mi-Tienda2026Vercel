@@ -20,8 +20,15 @@ export function ProductModal({ product, onClose }: Props) {
     addItem: s.addItem,
   }));
 
+  const esCurva = product.tipo_venta === 'curva';
+
+  // Estados para packs
   const [tipoPack, setTipoPack] = useState<TipoPack>('media_docena');
-  const [cantidad, setCantidad] = useState(1);
+  const [cantidadPacks, setCantidadPacks] = useState(1);
+
+  // Estados para curva
+  const [cantidadCurvas, setCantidadCurvas] = useState(1);
+
   const [imgIndex, setImgIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [stockTotal, setStockTotal] = useState<number>(product.stock_unidades);
@@ -47,22 +54,47 @@ export function ProductModal({ product, onClose }: Props) {
 
   const stockRestante = Math.max(0, stockTotal - unidadesEnCarrito);
 
+  // Cálculos para packs
   const maxMediaDocena = Math.floor(stockRestante / 6);
   const maxDocena = Math.floor(stockRestante / 12);
-  const maxCantidad = tipoPack === 'media_docena' ? maxMediaDocena : maxDocena;
-  const unidadesPack = PACK_CONFIG[tipoPack].unidades;
-  const precio = tipoPack === 'media_docena' ? product.precio_media_docena : product.precio_docena;
-  const totalUnidades = cantidad * unidadesPack;
-  const totalPrecio = cantidad * precio;
+  const maxCantidadPacks = tipoPack === 'media_docena' ? maxMediaDocena : maxDocena;
 
+  // Cálculos para curva
+  const unidadesCurva = product.unidades_curva ?? 1;
+  const maxCurvas = Math.floor(stockRestante / unidadesCurva);
+
+  // Precio según tipo
+  const precioPack = tipoPack === 'media_docena' ? product.precio_media_docena : product.precio_docena;
+  const precioCurva = product.precio_curva ?? 0;
+
+  // Totales
+  const totalUnidades = esCurva
+    ? cantidadCurvas * unidadesCurva
+    : cantidadPacks * (tipoPack === 'media_docena' ? 6 : 12);
+  const totalPrecio = esCurva
+    ? cantidadCurvas * precioCurva
+    : cantidadPacks * precioPack;
+
+  // Efecto para resetear cantidades cuando cambia el stock
   useEffect(() => {
-    setCantidad((c) => Math.min(c, maxCantidad || 1));
-  }, [tipoPack, maxCantidad]);
+    if (esCurva) {
+      setCantidadCurvas((c) => Math.min(c, maxCurvas || 1));
+    } else {
+      setCantidadPacks((c) => Math.min(c, maxCantidadPacks || 1));
+    }
+  }, [esCurva, maxCurvas, maxCantidadPacks]);
 
   const handleAdd = async () => {
-    if (maxCantidad === 0) {
-      toast.error('No hay stock disponible para este pack');
-      return;
+    if (esCurva) {
+      if (maxCurvas === 0) {
+        toast.error('No hay stock suficiente para una curva');
+        return;
+      }
+    } else {
+      if (maxCantidadPacks === 0) {
+        toast.error('No hay stock disponible para este pack');
+        return;
+      }
     }
 
     setLoading(true);
@@ -85,7 +117,10 @@ export function ProductModal({ product, onClose }: Props) {
       .filter((i) => i.productId === product.id)
       .reduce((sum, i) => sum + i.unidades, 0);
     const stockRestanteActual = Math.max(0, stockActual - unidadesActualesEnCarrito);
-    const unidadesSolicitadas = cantidad * (tipoPack === 'media_docena' ? 6 : 12);
+
+    const unidadesSolicitadas = esCurva
+      ? cantidadCurvas * unidadesCurva
+      : cantidadPacks * (tipoPack === 'media_docena' ? 6 : 12);
 
     if (unidadesSolicitadas > stockRestanteActual) {
       toast.error(`Stock insuficiente. Disponible: ${stockRestanteActual} unidades`);
@@ -93,19 +128,37 @@ export function ProductModal({ product, onClose }: Props) {
       return;
     }
 
-    const result = await addItem({
+    // Preparar datos para el carrito
+    const itemData = esCurva ? {
       productId: product.id,
       productSlug: product.slug,
       nombre: product.nombre,
       imagen: product.imagenes[0] ?? '',
-      tipoPack,
-      cantidadPacks: cantidad,
-      unidades: totalUnidades,
-      precioUnitario: precio,
-    });
+      tipoVenta: 'curva' as const,
+      unidadesPorItem: unidadesCurva,
+      cantidadItems: cantidadCurvas,
+      unidades: unidadesSolicitadas,
+      precioUnitario: precioCurva,
+    } : {
+      productId: product.id,
+      productSlug: product.slug,
+      nombre: product.nombre,
+      imagen: product.imagenes[0] ?? '',
+      tipoVenta: 'pack' as const,
+      tipoPack: tipoPack,
+      unidadesPorItem: tipoPack === 'media_docena' ? 6 : 12,
+      cantidadItems: cantidadPacks,
+      unidades: unidadesSolicitadas,
+      precioUnitario: precioPack,
+    };
+
+    const result = await addItem(itemData as any); // el tipado se ajusta en el store
 
     if (result.success) {
-      toast.success(`${cantidad} ${PACK_CONFIG[tipoPack].label} agregado${cantidad > 1 ? 's' : ''} al carrito`);
+      const label = esCurva
+        ? `Curva de ${unidadesCurva} unidades`
+        : PACK_CONFIG[tipoPack].label;
+      toast.success(`${esCurva ? cantidadCurvas : cantidadPacks} ${label} agregado${(esCurva ? cantidadCurvas : cantidadPacks) > 1 ? 's' : ''} al carrito`);
       onClose();
     } else {
       toast.error(result.error || 'No se pudo agregar al carrito');
@@ -114,7 +167,7 @@ export function ProductModal({ product, onClose }: Props) {
     setLoading(false);
   };
 
-  // ✅ Eliminar duplicados de colores y talles con Set
+  // Eliminar duplicados de colores y talles con Set
   const uniqueColores = product.colores ? [...new Set(product.colores)] : [];
   const uniqueTalles = product.talles ? [...new Set(product.talles)] : [];
 
@@ -185,14 +238,23 @@ export function ProductModal({ product, onClose }: Props) {
                   <span>{unidadesEnCarrito} uds</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted">Máx. media docena</span>
-                <span className="font-semibold">{maxMediaDocena} packs</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Máx. docena</span>
-                <span className="font-semibold">{maxDocena} packs</span>
-              </div>
+              {esCurva ? (
+                <div className="flex justify-between">
+                  <span className="text-muted">Curvas disponibles</span>
+                  <span className="font-semibold">{maxCurvas}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Máx. media docena</span>
+                    <span className="font-semibold">{maxMediaDocena} packs</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted">Máx. docena</span>
+                    <span className="font-semibold">{maxDocena} packs</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {uniqueColores.length > 0 && (
@@ -220,52 +282,83 @@ export function ProductModal({ product, onClose }: Props) {
               </div>
             )}
 
-            <div>
-              <p className="text-xs font-medium mb-2">Tipo de pack</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(['media_docena', 'docena'] as TipoPack[]).map((t) => {
-                  const max = t === 'media_docena' ? maxMediaDocena : maxDocena;
-                  const price = t === 'media_docena' ? product.precio_media_docena : product.precio_docena;
-                  const disabled = max === 0;
-                  return (
-                    <button
-                      key={t}
-                      disabled={disabled}
-                      onClick={() => setTipoPack(t)}
-                      className={cn(
-                        'rounded-xl border-2 p-3 text-left transition-all text-sm',
-                        tipoPack === t
-                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30'
-                          : 'border-border hover:border-brand-300',
-                        disabled && 'opacity-40 cursor-not-allowed'
-                      )}
-                    >
-                      <p className="font-semibold">{PACK_CONFIG[t].label}</p>
-                      <p className="text-brand-600 font-bold">{formatPrice(price)}</p>
-                      {disabled && (
-                        <p className="text-xs text-red-500 mt-1">Sin stock</p>
-                      )}
-                    </button>
-                  );
-                })}
+            {esCurva ? (
+              // Modo curva
+              <div>
+                <p className="text-xs font-medium mb-2">Curva de {unidadesCurva} unidades</p>
+                <div className="rounded-xl border-2 border-brand-500 bg-brand-50 dark:bg-brand-950/30 p-3 text-center">
+                  <p className="text-2xl font-bold text-brand-600">{formatPrice(precioCurva)}</p>
+                  <p className="text-xs text-muted mt-1">
+                    {product.precio_unitario_orientativo && (
+                      <>({formatPrice(product.precio_unitario_orientativo)} por unidad)</>
+                    )}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              // Modo packs
+              <div>
+                <p className="text-xs font-medium mb-2">Tipo de pack</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['media_docena', 'docena'] as TipoPack[]).map((t) => {
+                    const max = t === 'media_docena' ? maxMediaDocena : maxDocena;
+                    const price = t === 'media_docena' ? product.precio_media_docena : product.precio_docena;
+                    const disabled = max === 0;
+                    return (
+                      <button
+                        key={t}
+                        disabled={disabled}
+                        onClick={() => setTipoPack(t)}
+                        className={cn(
+                          'rounded-xl border-2 p-3 text-left transition-all text-sm',
+                          tipoPack === t
+                            ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30'
+                            : 'border-border hover:border-brand-300',
+                          disabled && 'opacity-40 cursor-not-allowed'
+                        )}
+                      >
+                        <p className="font-semibold">{PACK_CONFIG[t].label}</p>
+                        <p className="text-brand-600 font-bold">{formatPrice(price)}</p>
+                        {disabled && (
+                          <p className="text-xs text-red-500 mt-1">Sin stock</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
+            {/* Selector de cantidad */}
             <div className="flex items-center gap-4">
               <p className="text-xs font-medium">Cantidad</p>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCantidad(Math.max(1, cantidad - 1))}
+                  onClick={() => {
+                    if (esCurva) {
+                      setCantidadCurvas(Math.max(1, cantidadCurvas - 1));
+                    } else {
+                      setCantidadPacks(Math.max(1, cantidadPacks - 1));
+                    }
+                  }}
                   className="rounded-lg border p-1.5 hover:bg-surface-2 disabled:opacity-40"
-                  disabled={cantidad <= 1}
+                  disabled={esCurva ? cantidadCurvas <= 1 : cantidadPacks <= 1}
                 >
                   <Minus size={14} />
                 </button>
-                <span className="w-8 text-center text-sm font-semibold">{cantidad}</span>
+                <span className="w-8 text-center text-sm font-semibold">
+                  {esCurva ? cantidadCurvas : cantidadPacks}
+                </span>
                 <button
-                  onClick={() => setCantidad(Math.min(maxCantidad, cantidad + 1))}
+                  onClick={() => {
+                    if (esCurva) {
+                      setCantidadCurvas(Math.min(maxCurvas, cantidadCurvas + 1));
+                    } else {
+                      setCantidadPacks(Math.min(maxCantidadPacks, cantidadPacks + 1));
+                    }
+                  }}
                   className="rounded-lg border p-1.5 hover:bg-surface-2 disabled:opacity-40"
-                  disabled={cantidad >= maxCantidad}
+                  disabled={esCurva ? cantidadCurvas >= maxCurvas : cantidadPacks >= maxCantidadPacks}
                 >
                   <Plus size={14} />
                 </button>
@@ -285,7 +378,9 @@ export function ProductModal({ product, onClose }: Props) {
 
             <button
               onClick={handleAdd}
-              disabled={maxCantidad === 0 || loading}
+              disabled={
+                (esCurva ? maxCurvas === 0 : maxCantidadPacks === 0) || loading
+              }
               className="btn-primary w-full"
             >
               {loading ? (
@@ -293,7 +388,9 @@ export function ProductModal({ product, onClose }: Props) {
               ) : (
                 <>
                   <ShoppingCart size={16} />
-                  {maxCantidad === 0 ? 'Sin stock' : 'Agregar al carrito'}
+                  {(esCurva ? maxCurvas === 0 : maxCantidadPacks === 0)
+                    ? 'Sin stock'
+                    : 'Agregar al carrito'}
                 </>
               )}
             </button>

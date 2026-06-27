@@ -9,6 +9,26 @@ function formatARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n);
 }
 
+// ✅ Helper para obtener descripción de un item de pedido (soporta curvas y packs)
+function getItemDescription(item: any): string {
+  if (item.tipo_venta === 'curva') {
+    return `Curva de ${item.unidades_por_item} uds`;
+  }
+  // Si es pack, usar tipo_pack
+  if (item.tipo_pack === 'media_docena') {
+    return 'Media docena (6 uds)';
+  }
+  if (item.tipo_pack === 'docena') {
+    return 'Docena (12 uds)';
+  }
+  return 'Pack';
+}
+
+// ✅ Helper para obtener cantidad de items (fallback a cantidad_packs)
+function getCantidadItems(item: any): number {
+  return item.cantidad_items ?? item.cantidad_packs ?? 0;
+}
+
 function base(title: string, body: string): string {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -28,13 +48,18 @@ export function orderConfirmationHtml(
   bankInfo?: { titular: string; cbu: string; alias: string; banco: string } | null,
   locationInfo?: { direccion: string; horario: string; mapaUrl: string } | null
 ): string {
-  const itemRows = (order.order_items ?? []).map((item) => `
+  // ✅ CORREGIDO: usar helpers para curvas
+  const itemRows = (order.order_items ?? []).map((item: any) => {
+    const descripcion = getItemDescription(item);
+    const cantidad = getCantidadItems(item);
+    return `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">
-        ${item.nombre_snap}<span style="color:#9ca3af;font-size:12px;display:block;">${item.tipo_pack === 'media_docena' ? 'Media docena (6 uds)' : 'Docena (12 uds)'} × ${item.cantidad_packs}</span>
+        ${item.nombre_snap}<span style="color:#9ca3af;font-size:12px;display:block;">${descripcion} × ${cantidad}</span>
       </td>
       <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:14px;text-align:right;font-weight:600;">${formatARS(item.subtotal)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   // ── Bloque de pago ──
   let pagoHtml = '';
@@ -407,9 +432,12 @@ export function paymentReminderHtml(order: Order): string {
 
 // ─── ADMIN: Nuevo pedido ──────────────────────────────────────────────────────
 export function adminNewOrderHtml(order: Order): string {
-  const itemsList = (order.order_items ?? []).map(item =>
-    `- ${item.nombre_snap} (${item.tipo_pack === 'media_docena' ? 'Media docena' : 'Docena'} x ${item.cantidad_packs}) - ${formatARS(item.subtotal)}`
-  ).join('\n');
+  // ✅ CORREGIDO: usar helpers para curvas
+  const itemsList = (order.order_items ?? []).map((item: any) => {
+    const descripcion = getItemDescription(item);
+    const cantidad = getCantidadItems(item);
+    return `- ${item.nombre_snap} (${descripcion} × ${cantidad}) - ${formatARS(item.subtotal)}`;
+  }).join('\n');
 
   const body = `
     <div style="text-align:center;margin-bottom:20px;">

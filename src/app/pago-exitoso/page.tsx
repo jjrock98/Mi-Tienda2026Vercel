@@ -3,13 +3,25 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import { CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { formatPrice, formatDate, ORDER_STATUS_LABELS } from '@/utils';
-import type { Order } from '@/types';
+import { PACK_CONFIG } from '@/types';
+import type { Order, TipoPack } from '@/types';
 
 export const metadata = { title: 'Pedido recibido' };
 export const dynamic  = 'force-dynamic';
 
 interface Props {
   searchParams: { orderId?: string }
+}
+
+// ✅ Helper para obtener descripción del item
+function getItemDescription(item: any): string {
+  if (item.tipo_venta === 'curva') {
+    return `Curva de ${item.unidades_por_item} uds × ${item.cantidad_items}`;
+  } else {
+    const packKey = item.tipo_pack as TipoPack;
+    const packLabel = PACK_CONFIG[packKey]?.label || item.tipo_pack || 'Pack';
+    return `${packLabel} × ${item.cantidad_items}`;
+  }
 }
 
 export default async function PagoExitosoPage({ searchParams }: Props) {
@@ -24,7 +36,19 @@ export default async function PagoExitosoPage({ searchParams }: Props) {
     const admin = createAdminClient();
     const { data } = await admin
       .from('orders')
-      .select('*, order_items(nombre_snap, tipo_pack, cantidad_packs, subtotal)')
+      .select(`
+        *,
+        order_items(
+          nombre_snap,
+          tipo_venta,
+          tipo_pack,
+          unidades_por_item,
+          cantidad_items,
+          unidades,
+          precio_unit,
+          subtotal
+        )
+      `)
       .eq('id', orderId)
       .eq('user_id', user.id)
       .single();
@@ -98,7 +122,7 @@ export default async function PagoExitosoPage({ searchParams }: Props) {
           {(order.order_items ?? []).map((item, i) => (
             <div key={i} className="flex justify-between text-sm">
               <span className="text-muted line-clamp-1 flex-1">
-                {item.nombre_snap} × {item.cantidad_packs}
+                {item.nombre_snap} · {getItemDescription(item)}
               </span>
               <span>{formatPrice(item.subtotal)}</span>
             </div>

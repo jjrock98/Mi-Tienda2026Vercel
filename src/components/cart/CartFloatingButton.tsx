@@ -1,25 +1,26 @@
 'use client';
-
 import { useCartStore } from '@/hooks/useCart';
+import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
-import { ShoppingCart } from 'lucide-react';
 import type { CartItem } from '@/types';
 
 export function CartFloatingButton() {
   const items = useCartStore((state) => state.items);
-  const totalItems = items.reduce((acc: number, item: CartItem) => acc + item.cantidadPacks, 0);
+  
+  // ✅ Reemplazar cantidadPacks por cantidadItems
+  const totalItems = items.reduce((acc: number, item: CartItem) => acc + item.cantidadItems, 0);
 
   if (totalItems === 0) return null;
 
   return (
     <Link
       href="/carrito"
-      className="fixed bottom-20 right-6 z-[9999999] lg:hidden flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-transform active:scale-90"
-      aria-label="Ir al carrito"
+      className="fixed bottom-20 right-4 z-[999999] flex items-center justify-center rounded-full bg-brand-600 p-3.5 shadow-lg transition-all hover:bg-brand-700 hover:scale-105 active:scale-95 lg:hidden"
+      aria-label="Ver carrito"
     >
-      <ShoppingCart size={24} />
-      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-        {totalItems}
+      <ShoppingBag size={22} className="text-white" />
+      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+        {totalItems > 9 ? '9+' : totalItems}
       </span>
     </Link>
   );

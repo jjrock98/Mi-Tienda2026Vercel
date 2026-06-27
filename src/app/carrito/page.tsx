@@ -6,6 +6,7 @@ import { Trash2, ShoppingBag, Minus, Plus, MapPin, Truck, AlertCircle } from 'lu
 import { useCartStore } from '@/hooks/useCart';
 import { formatPrice } from '@/utils';
 import { PACK_CONFIG } from '@/types';
+import type { TipoPack } from '@/types';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -18,7 +19,6 @@ export default function CarritoPage() {
   const [loadingStock, setLoadingStock] = useState(true);
   const correctionApplied = useRef(false);
 
-  // Obtener stock actualizado para cada ítem
   useEffect(() => {
     const fetchStockForItems = async () => {
       setLoadingStock(true);
@@ -46,7 +46,6 @@ export default function CarritoPage() {
     fetchStockForItems();
   }, [items]);
 
-  // ✅ AUTOCORRECCIÓN: ajustar cantidades que excedan el stock
   useEffect(() => {
     if (loadingStock || Object.keys(stockMap).length === 0 || correctionApplied.current) return;
 
@@ -58,13 +57,14 @@ export default function CarritoPage() {
         .filter(i => i.productId === item.productId)
         .reduce((sum, i) => sum + i.unidades, 0);
       const stockRestante = Math.max(0, stockTotal - (unidadesEnCarrito - item.unidades));
-      const unidadesPorPack = item.tipoPack === 'media_docena' ? 6 : 12;
-      const maxPacks = Math.floor(stockRestante / unidadesPorPack);
-      if (item.cantidadPacks > maxPacks && maxPacks >= 0) {
+      const unidadesPorItem = item.unidadesPorItem;
+      const maxItems = Math.floor(stockRestante / unidadesPorItem);
+      
+      if (item.cantidadItems > maxItems && maxItems >= 0) {
         needCorrection = true;
-        updateQuantity(item.productId, item.tipoPack, maxPacks).then(result => {
+        updateQuantity(item.productId, item.tipoVenta, item.tipoPack, maxItems).then(result => {
           if (result.success) {
-            toast.error(`🔄 Se ajustó la cantidad de "${item.nombre}" a ${maxPacks} packs (stock disponible)`);
+            toast.error(`🔄 Se ajustó la cantidad de "${item.nombre}" a ${maxItems} ${item.tipoVenta === 'curva' ? 'curvas' : 'packs'} (stock disponible)`);
           }
         });
       }
@@ -97,14 +97,13 @@ export default function CarritoPage() {
     }
   }, [stockMap, loadingStock, items, updateQuantity]);
 
-  // Calcular unidades totales por producto
   const getUnidadesEnCarrito = (productId: string) => {
     return items
       .filter(i => i.productId === productId)
       .reduce((sum, i) => sum + i.unidades, 0);
   };
 
-  const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadPacks), 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
   const totalCalculado = subtotal + (costoEnvio || 0);
 
   const calcShipping = async () => {
@@ -122,17 +121,33 @@ export default function CarritoPage() {
     setCalc(false);
   };
 
-  const handleUpdateQuantity = async (productId: string, tipoPack: any, newCantidad: number) => {
+  const handleUpdateQuantity = async (item: any, newCantidad: number) => {
     if (newCantidad <= 0) {
-      await removeItem(productId, tipoPack);
+      await removeItem(item.productId, item.tipoVenta, item.tipoPack);
       toast('Producto eliminado');
       return;
     }
 
-    const result = await updateQuantity(productId, tipoPack, newCantidad);
+    const result = await updateQuantity(
+      item.productId,
+      item.tipoVenta,
+      item.tipoPack,
+      newCantidad
+    );
     if (!result.success) {
       toast.error(result.error || 'No se pudo actualizar la cantidad');
     }
+  };
+
+  // ✅ Función segura para obtener la etiqueta del item
+  const getItemLabel = (item: any): string => {
+    if (item.tipoVenta === 'curva') {
+      return `Curva de ${item.unidadesPorItem} uds`;
+    }
+    // Si es pack, forzamos el tipo para usar PACK_CONFIG
+    const packKey = item.tipoPack as TipoPack;
+    const label = PACK_CONFIG[packKey]?.label;
+    return label ? label : 'Pack';
   };
 
   if (items.length === 0) {
@@ -155,13 +170,13 @@ export default function CarritoPage() {
             const stockTotal = stockMap[item.productId] ?? 0;
             const unidadesEnCarrito = getUnidadesEnCarrito(item.productId);
             const stockRestante = Math.max(0, stockTotal - (unidadesEnCarrito - item.unidades));
-            const unidadesPorPack = item.tipoPack === 'media_docena' ? 6 : 12;
-            const maxPacks = Math.floor(stockRestante / unidadesPorPack);
-            const isStockOk = item.cantidadPacks <= maxPacks && stockRestante >= 0;
+            const unidadesPorItem = item.unidadesPorItem;
+            const maxItems = Math.floor(stockRestante / unidadesPorItem);
+            const isStockOk = item.cantidadItems <= maxItems && stockRestante >= 0;
 
             return (
               <div
-                key={`${item.productId}-${item.tipoPack}`}
+                key={`${item.productId}-${item.tipoVenta}-${item.tipoPack || 'curva'}`}
                 className={`card flex gap-4 p-4 animate-fade-in ${!isStockOk ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/10' : ''}`}
               >
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-surface-2">
@@ -176,8 +191,8 @@ export default function CarritoPage() {
 
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm leading-tight line-clamp-2">{item.nombre}</p>
-                  <p className="text-xs text-muted mt-0.5">{PACK_CONFIG[item.tipoPack].label}</p>
-                  <p className="text-xs text-muted">{item.unidades} unidades · {formatPrice(item.precioUnitario)}/pack</p>
+                  <p className="text-xs text-muted mt-0.5">{getItemLabel(item)}</p>
+                  <p className="text-xs text-muted">{item.unidades} unidades · {formatPrice(item.precioUnitario)}/{item.tipoVenta === 'curva' ? 'curva' : 'pack'}</p>
 
                   {!isStockOk && (
                     <div className="flex items-center gap-1 text-xs text-red-600 mt-1">
@@ -195,33 +210,36 @@ export default function CarritoPage() {
                   <div className="flex items-center gap-3 mt-2">
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => handleUpdateQuantity(item.productId, item.tipoPack, item.cantidadPacks - 1)}
+                        onClick={() => handleUpdateQuantity(item, item.cantidadItems - 1)}
                         className="rounded-lg border p-1 hover:bg-surface-2 disabled:opacity-40"
-                        disabled={item.cantidadPacks <= 1 || loadingStock}
+                        disabled={item.cantidadItems <= 1 || loadingStock}
                       >
                         <Minus size={12} />
                       </button>
-                      <span className="w-6 text-center text-sm font-semibold">{item.cantidadPacks}</span>
+                      <span className="w-6 text-center text-sm font-semibold">{item.cantidadItems}</span>
                       <button
-                        onClick={() => handleUpdateQuantity(item.productId, item.tipoPack, item.cantidadPacks + 1)}
+                        onClick={() => handleUpdateQuantity(item, item.cantidadItems + 1)}
                         className="rounded-lg border p-1 hover:bg-surface-2 disabled:opacity-40"
                         disabled={
                           loadingStock ||
-                          item.cantidadPacks >= maxPacks ||
-                          maxPacks <= 0 ||
+                          item.cantidadItems >= maxItems ||
+                          maxItems <= 0 ||
                           !isStockOk
                         }
                       >
                         <Plus size={12} />
                       </button>
                     </div>
-                    <span className="text-sm font-bold text-brand-600">{formatPrice(item.precioUnitario * item.cantidadPacks)}</span>
+                    <span className="text-sm font-bold text-brand-600">{formatPrice(item.precioUnitario * item.cantidadItems)}</span>
                     {loadingStock && <span className="text-xs text-muted">...</span>}
                   </div>
                 </div>
 
                 <button
-                  onClick={() => { removeItem(item.productId, item.tipoPack); toast('Producto eliminado'); }}
+                  onClick={() => { 
+                    removeItem(item.productId, item.tipoVenta, item.tipoPack);
+                    toast('Producto eliminado');
+                  }}
                   className="text-muted hover:text-red-500 transition-colors p-1 self-start"
                 >
                   <Trash2 size={16} />
