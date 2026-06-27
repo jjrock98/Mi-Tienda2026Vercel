@@ -7,8 +7,10 @@ import { MP_COMMISSION } from '@/lib/constants';
 interface OrderItem {
   id: string;
   product_id: string;
-  tipo_pack: string;
-  cantidad_packs: number;
+  tipo_venta: 'pack' | 'curva';      // ✅ nuevo campo
+  tipo_pack: string | null;          // puede ser null para curva
+  unidades_por_item: number;         // ✅ nuevo campo
+  cantidad_items: number;            // ✅ nuevo campo (reemplaza cantidad_packs)
   unidades: number;
   precio_unit: number;
   subtotal: number;
@@ -60,16 +62,27 @@ export async function POST(req: NextRequest) {
     const commission = typeof MP_COMMISSION === 'number' ? MP_COMMISSION : 0.07;
 
     // 1️⃣ Construir items con precios que incluyan el recargo de MP
+    // ✅ Usamos cantidad_items (número de curvas o packs) y precio_unit (precio por curva o pack)
     const items = orderData.order_items.map((item: OrderItem) => {
       const basePrice = Number(item.precio_unit);
       const priceWithCommission = basePrice * (1 + commission);
+
+      // Determinar la descripción según el tipo de venta
+      let description = '';
+      if (item.tipo_venta === 'curva') {
+        description = `Curva de ${item.unidades_por_item} unidades`;
+      } else {
+        const packLabel = item.tipo_pack === 'media_docena' ? 'Media docena' : 'Docena';
+        description = `${packLabel} (${item.unidades_por_item} unidades)`;
+      }
+
       return {
         id: item.product_id,
         title: item.nombre_snap,
-        quantity: item.cantidad_packs,
+        quantity: item.cantidad_items,  // ✅ usando cantidad_items (siempre es un número)
         unit_price: Math.round(priceWithCommission * 100) / 100,
         currency_id: 'ARS',
-        description: `${item.tipo_pack} - ${item.nombre_snap}`,
+        description: description,
       };
     });
 
@@ -118,6 +131,8 @@ export async function POST(req: NextRequest) {
         installments: 12,
       },
     };
+
+    console.log('📦 Items enviados a MP:', JSON.stringify(items, null, 2));
 
     // 5️⃣ Llamar a la API de MP
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
