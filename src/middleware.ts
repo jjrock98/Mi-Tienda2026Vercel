@@ -8,13 +8,35 @@ const AUTH_REQUIRED_ROUTES    = [
 ];
 const ADMIN_ROUTES = ['/admin'];
 
+// ✅ Lista de User-Agents de bots/rastreadores
+const BOT_USER_AGENTS = [
+  'Googlebot',
+  'bingbot',
+  'Slurp',
+  'DuckDuckBot',
+  'Baiduspider',
+  'YandexBot',
+  'Sogou',
+  'Exabot',
+  'facebookexternalhit',
+  'Facebot',
+  'Twitterbot',
+  'WhatsApp',
+  'Applebot',
+  'Pingdom',
+  'GTmetrix',
+  'AhrefsBot',
+  'SemrushBot',
+];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ── Primero obtenemos el cliente de Supabase desde updateSession ──
-  const { supabaseResponse, user, supabase } = await updateSession(request);
+  // ── ✅ DETECTAR BOTS ──
+  const userAgent = request.headers.get('user-agent') || '';
+  const isBot = BOT_USER_AGENTS.some((bot) => userAgent.includes(bot));
 
-  // ── Maintenance mode (usando el cliente de Supabase ya creado) ──
+  // ── Rutas excluidas (siempre accesibles) ──
   const isExcluded =
     pathname.startsWith('/admin') ||
     pathname.startsWith('/auth') ||
@@ -27,6 +49,20 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/manifest.json') ||
     pathname.startsWith('/og');
 
+  // ✅ Si es un bot, permitir acceso a todo (excepto rutas excluidas por seguridad)
+  if (isBot) {
+    // Permitir acceso a todo (excepto admin, api, auth, etc.)
+    if (!isExcluded) {
+      return NextResponse.next();
+    }
+    // Para rutas excluidas, también permitir (pero no debería ser necesario)
+    return NextResponse.next();
+  }
+
+  // ── Resto del middleware (solo para humanos) ──
+  const { supabaseResponse, user, supabase } = await updateSession(request);
+
+  // ── Maintenance mode ──
   if (!isExcluded) {
     try {
       const { data } = await supabase
@@ -41,14 +77,11 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/mantenimiento', request.url));
       }
     } catch (error) {
-      // Si falla la consulta, asumimos que NO está en mantenimiento
       console.error('Error al leer estado de mantenimiento:', error);
     }
   }
 
-  // ── Resto de la lógica (auth, admin, perfil) ──
-
-  // Auth required
+  // ── Auth required (solo para humanos) ──
   const requiresAuth = AUTH_REQUIRED_ROUTES.some((r) => pathname.startsWith(r));
   if (requiresAuth && !user) {
     const url = new URL('/auth/login', request.url);
@@ -56,7 +89,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Admin check
+  // ── Admin check ──
   if (ADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
     if (!user) {
       return NextResponse.redirect(new URL('/auth/login?redirect=/admin', request.url));
@@ -68,7 +101,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Profile completeness
+  // ── Profile completeness ──
   const requiresProfile = PROFILE_REQUIRED_ROUTES.some((r) => pathname.startsWith(r));
   if (requiresProfile && user) {
     const { data: profile } = await supabase

@@ -11,20 +11,58 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-display', display: 'swap' });
 
+const siteName = process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mc-importados.xyz';
+const defaultDescription = 'Encontrá los mejores productos por packs. Media docena y docena con envíos a todo el país.';
+
 export const metadata: Metadata = {
-  title: { default: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda', template: `%s | ${process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda'}` },
-  description: 'La mejor tienda online de productos por pack',
+  title: {
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
+  description: defaultDescription,
   manifest: '/manifest.json',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://localhost:3000'),
-  openGraph: { type: 'website', locale: 'es_AR', siteName: process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda' },
-  twitter: { card: 'summary_large_image' },
-  robots: { index: true, follow: true },
+  metadataBase: new URL(siteUrl),
+  openGraph: {
+    type: 'website',
+    locale: 'es_AR',
+    siteName: siteName,
+    title: siteName,
+    description: defaultDescription,
+    url: siteUrl,
+    images: [
+      {
+        url: '/og-image.jpg', // Asegúrate de tener esta imagen en public/
+        width: 1200,
+        height: 630,
+        alt: siteName,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: siteName,
+    description: defaultDescription,
+    images: ['/og-image.jpg'],
+    site: '@mc_importados', // Cambia por tu usuario de Twitter si tienes
+    creator: '@mc_importados',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large',
+      'max-video-preview': -1,
+    },
+  },
   icons: {
     icon: '/icons/icon-192.png',
     shortcut: '/icons/icon-192.png',
     apple: '/icons/icon-192.png',
   },
-  // ✅ Verificación de Google Search Console
   verification: {
     google: 's3kD92XTr9ajSAy0L1tzybztVQRIV1HSy8D66nTw-GM',
   },
@@ -35,7 +73,8 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)',  color: '#0f0f0f' },
   ],
-  width: 'device-width', initialScale: 1,
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
