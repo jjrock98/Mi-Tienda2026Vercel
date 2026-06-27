@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const revalidate = 3600; // Re-generate every hour
+export const dynamic = 'force-static';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://mc-importados.xyz';
