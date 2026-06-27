@@ -30,21 +30,14 @@ export const metadata: Metadata = {
     title: siteName,
     description: defaultDescription,
     url: siteUrl,
-    images: [
-      {
-        url: '/og-image.jpg', // Asegúrate de tener esta imagen en public/
-        width: 1200,
-        height: 630,
-        alt: siteName,
-      },
-    ],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: siteName }],
   },
   twitter: {
     card: 'summary_large_image',
     title: siteName,
     description: defaultDescription,
     images: ['/og-image.jpg'],
-    site: '@mc_importados', // Cambia por tu usuario de Twitter si tienes
+    site: '@mc_importados',
     creator: '@mc_importados',
   },
   robots: {
@@ -71,21 +64,34 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)',  color: '#0f0f0f' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f0f0f' },
   ],
   width: 'device-width',
   initialScale: 1,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  
-  const { data: contactInfo, error } = await supabase
-    .from('contact_info')
-    .select('*')
-    .single();
+  let contactData = null;
 
-  const contactData = error ? null : contactInfo;
+  try {
+    const supabase = await createClient();
+    
+    const { data: contactInfo, error } = await supabase
+      .from('contact_info')
+      .select('*')
+      .single();
+
+    if (!error && contactInfo) {
+      contactData = contactInfo;
+    }
+  } catch (err: unknown) {
+    // Verificamos si es un error de Next.js para dejarlo pasar
+    if (err instanceof Error && 'digest' in err && err.digest === 'DYNAMIC_SERVER_USAGE') {
+      throw err;
+    }
+    // Si es otro tipo de error, lo ignoramos para que la página cargue siempre
+    console.error("Error al cargar datos de contacto:", err);
+  }
 
   return (
     <html lang="es" suppressHydrationWarning className={`${inter.variable} ${playfair.variable}`}>
