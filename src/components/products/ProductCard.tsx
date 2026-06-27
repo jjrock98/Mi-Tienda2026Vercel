@@ -57,7 +57,6 @@ export function ProductCard({ product: p }: Props) {
   const sinStock       = stockReal === 0;
 
   // ── Carrusel de imágenes + video ──
-  // ✅ VIDEO COMO SEGUNDO ÍTEM (después de la primera imagen)
   const items = [
     // Primera imagen
     ...(p.imagenes.length > 0 ? [{ type: 'image' as const, src: p.imagenes[0] }] : []),
@@ -66,9 +65,6 @@ export function ProductCard({ product: p }: Props) {
     // Resto de imágenes (a partir de la segunda)
     ...p.imagenes.slice(1).map((img) => ({ type: 'image' as const, src: img })),
   ];
-
-  // ✅ LOG PARA DEPURAR (elimina después de verificar)
-  console.log('ProductCard - video_url:', p.video_url, 'items length:', items.length);
 
   const [current, setCurrent] = useState(0);
   const total = items.length;
@@ -111,11 +107,18 @@ export function ProductCard({ product: p }: Props) {
 
         <Link
           href={`/productos/${p.slug}`}
-          className="relative block overflow-hidden bg-surface-2"
+          className="relative block bg-surface-2"
           style={{ aspectRatio: '1/1' }}
           tabIndex={0}
           aria-label={`Ver detalle de ${p.nombre}`}
         >
+          {/* 🎬 Badge "Video" si existe video_url */}
+          {p.video_url && (
+            <span className="absolute top-2 left-2 z-30 rounded-full bg-red-600 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-md pointer-events-none">
+              🎬 Video
+            </span>
+          )}
+
           {/* Contenido del carrusel */}
           {total === 0 ? (
             <div className="flex h-full items-center justify-center text-muted">
@@ -141,22 +144,24 @@ export function ProductCard({ product: p }: Props) {
             />
           )}
 
-          {/* ✅ CONTROLES DE NAVEGACIÓN SIEMPRE VISIBLES (sin opacidad, con fondo fuerte) */}
+          {/* ✅ CONTROLES DE NAVEGACIÓN SIEMPRE VISIBLES */}
           {total > 1 && (
             <>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-1.5 shadow-lg z-20 border border-gray-200 dark:border-gray-700"
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-2 shadow-lg z-50 border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
+                style={{ opacity: 1, visibility: 'visible' }}
                 aria-label="Anterior"
               >
-                <ChevronLeft size={18} className="text-gray-800 dark:text-white" />
+                <ChevronLeft size={20} className="text-gray-800 dark:text-white" />
               </button>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-1.5 shadow-lg z-20 border border-gray-200 dark:border-gray-700"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-2 shadow-lg z-50 border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
+                style={{ opacity: 1, visibility: 'visible' }}
                 aria-label="Siguiente"
               >
-                <ChevronRight size={18} className="text-gray-800 dark:text-white" />
+                <ChevronRight size={20} className="text-gray-800 dark:text-white" />
               </button>
             </>
           )}
@@ -172,7 +177,7 @@ export function ProductCard({ product: p }: Props) {
 
           {/* Dots (indicadores) */}
           {total > 1 && (
-            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1 z-40">
               {items.map((_, i) => (
                 <button
                   key={i}
