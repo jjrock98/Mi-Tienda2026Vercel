@@ -67,6 +67,9 @@ export function ProductCard({ product: p }: Props) {
     ...p.imagenes.slice(1).map((img) => ({ type: 'image' as const, src: img })),
   ];
 
+  // ✅ LOG PARA DEPURAR (elimina después de verificar)
+  console.log('ProductCard - video_url:', p.video_url, 'items length:', items.length);
+
   const [current, setCurrent] = useState(0);
   const total = items.length;
 
@@ -138,22 +141,22 @@ export function ProductCard({ product: p }: Props) {
             />
           )}
 
-          {/* Controles de navegación (solo si hay más de 1 item) */}
+          {/* ✅ CONTROLES DE NAVEGACIÓN SIEMPRE VISIBLES (sin opacidad, con fondo fuerte) */}
           {total > 1 && (
             <>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-black/60 p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-1.5 shadow-lg z-20 border border-gray-200 dark:border-gray-700"
                 aria-label="Anterior"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} className="text-gray-800 dark:text-white" />
               </button>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-black/60 p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white dark:bg-black/80 p-1.5 shadow-lg z-20 border border-gray-200 dark:border-gray-700"
                 aria-label="Siguiente"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={18} className="text-gray-800 dark:text-white" />
               </button>
             </>
           )}
