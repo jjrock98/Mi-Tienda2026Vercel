@@ -2,12 +2,18 @@
 import { useCartStore } from '@/hooks/useCart';
 import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { CartItem } from '@/types';
 
 export function CartFloatingButton() {
   const items = useCartStore((state) => state.items);
-  
-  // ✅ Reemplazar cantidadPacks por cantidadItems
+  const pathname = usePathname();
+
+  // ✅ No mostrar en las páginas de carrito ni checkout
+  if (pathname === '/carrito' || pathname === '/checkout') {
+    return null;
+  }
+
   const totalItems = items.reduce((acc: number, item: CartItem) => acc + item.cantidadItems, 0);
 
   if (totalItems === 0) return null;
