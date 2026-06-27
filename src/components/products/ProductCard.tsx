@@ -57,9 +57,14 @@ export function ProductCard({ product: p }: Props) {
   const sinStock       = stockReal === 0;
 
   // ── Carrusel de imágenes + video ──
+  // ✅ VIDEO COMO SEGUNDO ÍTEM (después de la primera imagen)
   const items = [
-    ...p.imagenes.map((img) => ({ type: 'image' as const, src: img })),
+    // Primera imagen
+    ...(p.imagenes.length > 0 ? [{ type: 'image' as const, src: p.imagenes[0] }] : []),
+    // Video (si existe)
     ...(p.video_url ? [{ type: 'video' as const, src: p.video_url }] : []),
+    // Resto de imágenes (a partir de la segunda)
+    ...p.imagenes.slice(1).map((img) => ({ type: 'image' as const, src: img })),
   ];
 
   const [current, setCurrent] = useState(0);

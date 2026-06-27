@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+
 export const metadata: Metadata = { title: 'Políticas de privacidad' };
+
 export default function PoliticasPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 prose prose-sm dark:prose-invert max-w-none">
+    <div className="mx-auto max-w-3xl px-4 py-12 prose prose-sm dark:prose-invert">
       <h1>Política de privacidad</h1>
       <p>Última actualización: Enero 2025.</p>
       <h2>Información que recopilamos</h2>
