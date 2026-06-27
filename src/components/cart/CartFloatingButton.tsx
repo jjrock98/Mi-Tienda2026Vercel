@@ -5,12 +5,44 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { CartItem } from '@/types';
 
+// ✅ Rutas exactas donde NO se debe mostrar el botón flotante
+const EXACT_HIDDEN_ROUTES = [
+  '/carrito',
+  '/checkout',
+  '/pago/exitoso',
+  '/pago/error',
+  '/pago/pendiente',
+  '/mis-pedidos',
+  '/wishlist',
+  '/completar-perfil',
+  '/mantenimiento',
+];
+
+// ✅ Prefijos de rutas donde NO se debe mostrar el botón flotante
+const PREFIX_HIDDEN_ROUTES = [
+  '/auth/',      // auth/login, auth/registro, auth/verificar, etc.
+  '/admin/',     // admin/pedidos, admin/productos, admin/configuracion, etc.
+  '/mis-pedidos/', // mis-pedidos/[id], etc.
+  '/pago/',      // pago/exitoso, pago/error, pago/pendiente (ya cubiertos, pero por si acaso)
+  '/checkout/',  // checkout/success, checkout/failure, checkout/pending (ya cubiertos)
+];
+
 export function CartFloatingButton() {
   const items = useCartStore((state) => state.items);
   const pathname = usePathname();
 
-  // ✅ No mostrar en las páginas de carrito ni checkout
-  if (pathname === '/carrito' || pathname === '/checkout') {
+  // ✅ Si pathname es null o undefined, no mostrar (seguridad)
+  if (!pathname) {
+    return null;
+  }
+
+  // ✅ Ocultar en rutas exactas
+  if (EXACT_HIDDEN_ROUTES.includes(pathname)) {
+    return null;
+  }
+
+  // ✅ Ocultar en rutas que empiezan con ciertos prefijos
+  if (PREFIX_HIDDEN_ROUTES.some((prefix) => pathname.startsWith(prefix))) {
     return null;
   }
 
