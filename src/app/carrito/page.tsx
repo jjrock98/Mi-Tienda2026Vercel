@@ -19,6 +19,7 @@ export default function CarritoPage() {
   const [loadingStock, setLoadingStock] = useState(true);
   const correctionApplied = useRef(false);
 
+  // Obtener stock actualizado para cada ítem
   useEffect(() => {
     const fetchStockForItems = async () => {
       setLoadingStock(true);
@@ -46,6 +47,7 @@ export default function CarritoPage() {
     fetchStockForItems();
   }, [items]);
 
+  // ✅ AUTOCORRECCIÓN: ajustar cantidades que excedan el stock
   useEffect(() => {
     if (loadingStock || Object.keys(stockMap).length === 0 || correctionApplied.current) return;
 
@@ -97,6 +99,7 @@ export default function CarritoPage() {
     }
   }, [stockMap, loadingStock, items, updateQuantity]);
 
+  // Calcular unidades totales por producto
   const getUnidadesEnCarrito = (productId: string) => {
     return items
       .filter(i => i.productId === productId)
@@ -104,8 +107,11 @@ export default function CarritoPage() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
-  const totalCalculado = subtotal + (costoEnvio || 0);
+  // 🔧 ENVÍO TEMPORAL: usamos 0 para que el total no sume envío (el costo se acuerda con el vendedor)
+  const totalCalculado = subtotal; // ❌ Antes: subtotal + (costoEnvio || 0)
 
+  // 🚚 ENVÍO - CÓDIGO COMENTADO PARA REACTIVAR CUANDO TENGA LA API
+  /*
   const calcShipping = async () => {
     if (!cp.trim()) { toast.error('Ingresá un código postal'); return; }
     setCalc(true);
@@ -120,6 +126,7 @@ export default function CarritoPage() {
     }
     setCalc(false);
   };
+  */
 
   const handleUpdateQuantity = async (item: any, newCantidad: number) => {
     if (newCantidad <= 0) {
@@ -139,15 +146,15 @@ export default function CarritoPage() {
     }
   };
 
-  // ✅ Función segura para obtener la etiqueta del item
+  // ✅ Función getItemLabel corregida (sin error de TypeScript)
   const getItemLabel = (item: any): string => {
     if (item.tipoVenta === 'curva') {
       return `Curva de ${item.unidadesPorItem} uds`;
     }
-    // Si es pack, forzamos el tipo para usar PACK_CONFIG
+    // Si es pack, aseguramos que tipoPack sea válido
     const packKey = item.tipoPack as TipoPack;
-    const label = PACK_CONFIG[packKey]?.label;
-    return label ? label : 'Pack';
+    const packLabel = PACK_CONFIG[packKey]?.label;
+    return packLabel ? `${packLabel} ×${item.cantidadItems}` : `Pack ×${item.cantidadItems}`;
   };
 
   if (items.length === 0) {
@@ -250,10 +257,22 @@ export default function CarritoPage() {
         </div>
 
         <div className="space-y-4">
+          {/* 🚚 SECCIÓN DE ENVÍO - TEMPORALMENTE DESACTIVADA (MOSTRAMOS "A CONVENIR") */}
           <div className="card p-5">
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-              <Truck size={16} className="text-brand-500" /> Calcular envío
+              <Truck size={16} className="text-brand-500" /> Envío
             </h3>
+            
+            {/* ✅ VERSIÓN TEMPORAL (ACTIVA) */}
+            <div className="text-sm text-muted space-y-2">
+              <p>📦 El costo de envío se acuerda con el vendedor.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Contáctanos para coordinar la entrega.
+              </p>
+            </div>
+
+            {/* 🚚 CÓDIGO ORIGINAL DE CÁLCULO DE ENVÍO (COMENTADO PARA REACTIVAR) */}
+            {/*
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -278,6 +297,7 @@ export default function CarritoPage() {
                 Zona: {zonaEnvio} · {formatPrice(costoEnvio)}
               </p>
             )}
+            */}
           </div>
 
           <div className="card p-5 space-y-3">
@@ -288,14 +308,17 @@ export default function CarritoPage() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted">Envío</span>
-              <span>{zonaEnvio ? formatPrice(costoEnvio) : '—'}</span>
+              <span className="text-amber-600 font-medium">A convenir</span>
             </div>
             <div className="border-t border-border pt-3 flex justify-between font-bold">
-              <span>Total</span>
-              <span className="text-brand-600 text-lg">{formatPrice(totalCalculado)}</span>
+              <span>Total (sin envío)</span>
+              <span className="text-brand-600 text-lg">{formatPrice(subtotal)}</span>
             </div>
+            <p className="text-xs text-muted text-center mt-2">
+              * El costo de envío se agregará al total final acordado con el vendedor.
+            </p>
             <Link href="/checkout" className="btn-primary w-full mt-2 text-center">
-              Ir a pagar
+              Continuar con la compra
             </Link>
             <Link href="/" className="btn-ghost w-full text-center text-sm">
               Seguir comprando

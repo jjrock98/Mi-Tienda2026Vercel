@@ -25,12 +25,10 @@ interface CheckoutClientProps {
   bankInfo: BankInfo | null;
 }
 
-// ✅ Helper seguro para obtener la etiqueta de un item del carrito
 function getItemLabel(item: any): string {
   if (item.tipoVenta === 'curva') {
     return `Curva de ${item.unidadesPorItem} uds ×${item.cantidadItems}`;
   }
-  // Si es pack, aseguramos que tipoPack exista y sea válido
   const packKey = item.tipoPack as TipoPack;
   const packLabel = PACK_CONFIG[packKey]?.label;
   return packLabel ? `${packLabel} ×${item.cantidadItems}` : `Pack ×${item.cantidadItems}`;
@@ -52,10 +50,13 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
   const [mpUrl,       setMpUrl]       = useState('');
   const [pendingId,   setPendingId]   = useState('');
 
-  // ✅ Cálculo de subtotal usando cantidadItems
   const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
   const subtotalConMP = subtotal * (1 + MP_COMMISSION);
-  const envio = tipoEntrega === 'envio' ? costoEnvio : 0;
+  
+  // 🔧 ENVÍO TEMPORAL: forzamos costo 0 (se acuerda con el vendedor)
+  // const envio = tipoEntrega === 'envio' ? costoEnvio : 0; // ❌ ORIGINAL COMENTADO
+  const envio = 0; // ✅ VERSIÓN TEMPORAL
+
   const totalSinMP = subtotal + envio;
   const totalConMP = subtotalConMP + envio;
   const totalAPagar = metodo === 'mercadopago' ? totalConMP : totalSinMP;
@@ -102,7 +103,6 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
       throw new Error('Error en el cálculo del total. Revisá tu carrito.');
     }
 
-    // ✅ Construir payload con los nuevos campos
     const payload = {
       items: items.map((i) => ({
         product_id: i.productId,
@@ -114,7 +114,9 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
       })),
       formData: { ...form, metodo_pago: metodo, tipo_entrega: tipoEntrega },
       subtotal: Number(subtotal),
-      costo_envio: Number(envio),
+      // 🔧 ENVÍO TEMPORAL: forzamos 0
+      // costo_envio: Number(envio), // ❌ ORIGINAL COMENTADO
+      costo_envio: 0, // ✅ VERSIÓN TEMPORAL
       total: Number(totalAPagar),
     };
 
@@ -316,10 +318,24 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
             {tipoEntrega === 'envio' && (
               <div className="card p-6">
                 <h2 className="font-semibold mb-4 flex items-center gap-2"><MapPin size={17} className="text-brand-500" />Dirección de entrega</h2>
+
+                {/* ✅ VERSIÓN TEMPORAL: mensaje de envío a convenir */}
+                <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-3">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-600" />
+                  <div>
+                    <strong>El costo de envío se acuerda con el vendedor.</strong>
+                    <p className="mt-1 text-xs">Te contactaremos después de la compra para coordinar el envío y el costo final.</p>
+                  </div>
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2"><label className="block text-xs font-medium mb-1">Dirección *</label><input required value={form.direccion} onChange={set('direccion')} className="input-base" /></div>
                   <div><label className="block text-xs font-medium mb-1">Ciudad *</label><input required value={form.ciudad} onChange={set('ciudad')} className="input-base" /></div>
-                  <div><label className="block text-xs font-medium mb-1">Código postal *</label><input required value={form.codigo_postal} onChange={set('codigo_postal')} className="input-base" /></div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Código postal (opcional)</label>
+                    <input value={form.codigo_postal} onChange={set('codigo_postal')} className="input-base" />
+                    <p className="text-xs text-muted mt-1">No es necesario para el cálculo, solo para referencia.</p>
+                  </div>
                   <div className="sm:col-span-2"><label className="block text-xs font-medium mb-1">Notas (opcional)</label><textarea value={form.notas} onChange={set('notas')} rows={2} className="input-base resize-none" placeholder="Piso, depto, referencias…" /></div>
                 </div>
               </div>
@@ -354,7 +370,6 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
                 ))}
               </div>
 
-              {/* 📌 MOSTRAR DATOS BANCARIOS AL SELECCIONAR TRANSFERENCIA */}
               {metodo === 'transferencia' && bankInfo && (
                 <div className="mt-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-4 space-y-3">
                   <h4 className="font-semibold text-sm text-blue-800 dark:text-blue-400 flex items-center gap-2">
@@ -470,7 +485,12 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
 
                 <div className="flex justify-between text-muted">
                   <span>Envío</span>
-                  <span>{tipoEntrega === 'retiro' ? <span className="text-green-600 font-medium">Gratis (retiro)</span> : (zonaEnvio ? formatPrice(costoEnvio) : '—')}</span>
+                  <span>
+                    {tipoEntrega === 'retiro' 
+                      ? <span className="text-green-600 font-medium">Gratis (retiro)</span> 
+                      : <span className="text-amber-600 font-medium">A convenir</span>
+                    }
+                  </span>
                 </div>
 
                 {metodo === 'transferencia' && subtotalConMP > subtotal && (
@@ -481,9 +501,14 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
                 )}
 
                 <div className="flex justify-between font-bold text-base border-t border-border pt-2">
-                  <span>Total a pagar</span>
+                  <span>Total (sin envío)</span>
                   <span className="text-brand-600">{formatPrice(totalAPagar)}</span>
                 </div>
+                {tipoEntrega === 'envio' && (
+                  <p className="text-xs text-muted text-center">
+                    * El costo de envío se agregará al total final acordado con el vendedor.
+                  </p>
+                )}
               </div>
               <button type="submit" disabled={submitting} className="btn-primary w-full gap-2">
                 {submitting
