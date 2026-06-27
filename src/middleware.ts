@@ -32,6 +32,15 @@ const BOT_USER_AGENTS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ✅ REDIRECCIÓN DE www a sin www (IMPORTANTE)
+  const host = request.headers.get('host') || '';
+  if (host.startsWith('www.')) {
+    const newUrl = new URL(request.url);
+    newUrl.host = newUrl.host.replace(/^www\./, '');
+    // Redirección permanente (301) para SEO
+    return NextResponse.redirect(newUrl, 301);
+  }
+
   // ── ✅ DETECTAR BOTS ──
   const userAgent = request.headers.get('user-agent') || '';
   const isBot = BOT_USER_AGENTS.some((bot) => userAgent.includes(bot));
