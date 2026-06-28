@@ -1,184 +1,220 @@
 'use client';
-import { useState, useMemo, useTransition } from 'react';
-import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { useState, useMemo } from 'react';
+import { Search, Filter, ChevronDown, Package } from 'lucide-react';
 import { cn, formatPrice } from '@/utils';
+import { ProductCard } from './ProductCard';
 import type { Product } from '@/types';
 
-// ✅ Cargar ProductCard solo en el cliente (evita errores de SSR/SSG)
-const ProductCard = dynamic(
-  () => import('@/components/products/ProductCard').then((mod) => mod.ProductCard),
-  { ssr: false }
-);
-
-interface Props { products: Product[] }
-
-type SortKey = 'relevancia' | 'precio_asc' | 'precio_desc' | 'nombre' | 'stock';
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'relevancia',  label: 'Relevancia'        },
-  { value: 'precio_asc',  label: 'Precio: menor a mayor' },
-  { value: 'precio_desc', label: 'Precio: mayor a menor' },
-  { value: 'nombre',      label: 'Nombre A–Z'         },
-  { value: 'stock',       label: 'Mayor stock primero' },
-];
+interface Props {
+  products: Product[];
+}
 
 export function ProductFilters({ products }: Props) {
-  const [query,       setQuery]       = useState('');
-  const [sort,        setSort]        = useState<SortKey>('relevancia');
+  const [search, setSearch] = useState('');
   const [onlyInStock, setOnlyInStock] = useState(false);
-  const [priceMax,    setPriceMax]    = useState<number | ''>('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [,            startTransition] = useTransition();
-
-  // Derived price range
-  const maxPossiblePrice = useMemo(
-    () => Math.max(...products.map((p) => p.precio_media_docena)),
-    [products]
+  const [tipoVenta, setTipoVenta] = useState<'todas' | 'pack' | 'curva'>('todas');
+  const [maxPrice, setMaxPrice] = useState<number>(
+    Math.max(
+      250000,
+      ...products.map(p => {
+        if (p.tipo_venta === 'curva') return p.precio_curva ?? 0;
+        return Math.max(p.precio_media_docena, p.precio_docena);
+      })
+    )
   );
+  const [sortBy, setSortBy] = useState('relevancia');
 
-  const filtered = useMemo(() => {
-    let list = [...products];
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
 
-    // Text search
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.nombre.toLowerCase().includes(q) ||
-          p.descripcion?.toLowerCase().includes(q) ||
-          p.descripcion_corta?.toLowerCase().includes(q) ||
-          p.colores.some((c) => c.toLowerCase().includes(q)) ||
-          p.talles.some((t) => t.toLowerCase().includes(q))
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(p =>
+        p.nombre.toLowerCase().includes(q) ||
+        p.descripcion?.toLowerCase().includes(q) ||
+        p.descripcion_corta?.toLowerCase().includes(q) ||
+        p.colores.some(c => c.toLowerCase().includes(q)) ||
+        p.talles.some(t => t.toLowerCase().includes(q))
       );
     }
 
-    // Stock filter
-    if (onlyInStock) list = list.filter((p) => p.stock_unidades >= 6);
-
-    // Price filter (by media docena)
-    if (priceMax !== '') list = list.filter((p) => p.precio_media_docena <= Number(priceMax));
-
-    // Sort
-    switch (sort) {
-      case 'precio_asc':  list.sort((a, b) => a.precio_media_docena - b.precio_media_docena); break;
-      case 'precio_desc': list.sort((a, b) => b.precio_media_docena - a.precio_media_docena); break;
-      case 'nombre':      list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));         break;
-      case 'stock':       list.sort((a, b) => b.stock_unidades - a.stock_unidades);            break;
-      default:            list.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0)); break;
+    if (onlyInStock) {
+      result = result.filter(p => p.stock_unidades > 0);
     }
 
-    return list;
-  }, [products, query, sort, onlyInStock, priceMax]);
+    if (tipoVenta !== 'todas') {
+      result = result.filter(p => p.tipo_venta === tipoVenta);
+    }
 
-  const hasFilters = query || onlyInStock || priceMax !== '';
-  const clearAll   = () => { setQuery(''); setOnlyInStock(false); setPriceMax(''); setSort('relevancia'); };
+    result = result.filter(p => {
+      let price = 0;
+      if (p.tipo_venta === 'curva') {
+        price = p.precio_curva ?? 0;
+      } else {
+        price = Math.min(p.precio_media_docena, p.precio_docena);
+      }
+      return price <= maxPrice;
+    });
+
+    switch (sortBy) {
+      case 'precio_asc':
+        result.sort((a, b) => {
+          const priceA = a.tipo_venta === 'curva' ? (a.precio_curva ?? 0) : Math.min(a.precio_media_docena, a.precio_docena);
+          const priceB = b.tipo_venta === 'curva' ? (b.precio_curva ?? 0) : Math.min(b.precio_media_docena, b.precio_docena);
+          return priceA - priceB;
+        });
+        break;
+      case 'precio_desc':
+        result.sort((a, b) => {
+          const priceA = a.tipo_venta === 'curva' ? (a.precio_curva ?? 0) : Math.min(a.precio_media_docena, a.precio_docena);
+          const priceB = b.tipo_venta === 'curva' ? (b.precio_curva ?? 0) : Math.min(b.precio_media_docena, b.precio_docena);
+          return priceB - priceA;
+        });
+        break;
+      case 'nombre_asc':
+        result.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        break;
+      case 'nombre_desc':
+        result.sort((a, b) => b.nombre.localeCompare(a.nombre));
+        break;
+      case 'stock_asc':
+        result.sort((a, b) => a.stock_unidades - b.stock_unidades);
+        break;
+      case 'stock_desc':
+        result.sort((a, b) => b.stock_unidades - a.stock_unidades);
+        break;
+      default:
+        result.sort((a, b) => (b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
+        break;
+    }
+
+    return result;
+  }, [products, search, onlyInStock, tipoVenta, maxPrice, sortBy]);
+
+  const maxPriceLimit = useMemo(() => {
+    return Math.max(
+      250000,
+      ...products.map(p => {
+        if (p.tipo_venta === 'curva') return p.precio_curva ?? 0;
+        return Math.max(p.precio_media_docena, p.precio_docena);
+      })
+    );
+  }, [products]);
 
   return (
-    <div>
-      {/* Search + controls bar */}
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-          <input
-            value={query}
-            onChange={(e) => startTransition(() => setQuery(e.target.value))}
-            placeholder="Buscar productos, colores, talles…"
-            className="input-base pl-9 py-2.5 text-sm"
-            aria-label="Buscar productos"
-          />
-          {query && (
-            <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Sort */}
+    <div className="space-y-6">
+      <div className="space-y-4">
         <div className="relative">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-            className="input-base py-2.5 pl-3 pr-8 text-sm appearance-none cursor-pointer min-w-44"
-            aria-label="Ordenar por"
-          >
-            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar productos, colores, talles..."
+            className="input-base pl-9 py-2.5 w-full"
+          />
         </div>
 
-        {/* Filter toggle */}
-        <button
-          onClick={() => setFiltersOpen(!filtersOpen)}
-          className={cn('btn-secondary gap-2 py-2.5 text-sm', filtersOpen && 'border-brand-500 text-brand-600')}
-        >
-          <SlidersHorizontal size={15} />
-          Filtros
-          {hasFilters && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">!</span>}
-        </button>
-
-        {hasFilters && (
-          <button onClick={clearAll} className="text-xs text-muted hover:text-red-500 transition-colors flex items-center gap-1">
-            <X size={12} /> Limpiar filtros
-          </button>
-        )}
-      </div>
-
-      {/* Expanded filters */}
-      {filtersOpen && (
-        <div className="card mb-6 p-4 animate-fade-in grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* In stock */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox" checked={onlyInStock}
-              onChange={(e) => setOnlyInStock(e.target.checked)}
-              className="accent-brand-500 h-4 w-4"
-            />
-            <span className="text-sm">Solo con stock disponible</span>
-          </label>
-
-          {/* Max price */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5 text-muted">
-              Precio máximo (½ docena)
-              {priceMax !== '' && <span className="ml-1 text-brand-600 font-semibold">{formatPrice(Number(priceMax))}</span>}
+        <details className="group">
+          <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium hover:text-brand-600 transition-colors">
+            <Filter size={16} />
+            Filtros
+            <ChevronDown size={14} className="ml-auto transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4 space-y-4 p-4 bg-surface-2 rounded-xl">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyInStock}
+                onChange={(e) => setOnlyInStock(e.target.checked)}
+                className="accent-brand-500 h-4 w-4"
+              />
+              Solo con stock disponible
             </label>
-            <input
-              type="range" min={0} max={maxPossiblePrice} step={100}
-              value={priceMax === '' ? maxPossiblePrice : priceMax}
-              onChange={(e) => setPriceMax(Number(e.target.value) === maxPossiblePrice ? '' : Number(e.target.value))}
-              className="w-full accent-brand-500"
-            />
-            <div className="flex justify-between text-xs text-muted mt-1">
-              <span>{formatPrice(0)}</span>
-              <span>{formatPrice(maxPossiblePrice)}</span>
+
+            <div>
+              <p className="text-xs font-medium text-muted mb-2">Tipo de venta</p>
+              <div className="flex gap-2">
+                {[
+                  { id: 'todas', label: 'Todas' },
+                  { id: 'pack', label: '📦 Packs' },
+                  { id: 'curva', label: '🔀 Curvas' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setTipoVenta(opt.id as typeof tipoVenta)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-xs font-medium border transition-all',
+                      tipoVenta === opt.id
+                        ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400'
+                        : 'border-border text-muted hover:border-brand-300'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted">Precio máximo</p>
+                <span className="text-xs font-semibold">${formatPrice(maxPrice)}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={maxPriceLimit}
+                step={1000}
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(Number(e.target.value))}
+                className="w-full accent-brand-500"
+              />
             </div>
           </div>
-        </div>
-      )}
+        </details>
 
-      {/* Results count */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted">
-          <span className="font-semibold text-foreground">{filtered.length}</span>
-          {' '}producto{filtered.length !== 1 ? 's' : ''}
-          {query && <> para <strong>&ldquo;{query}&rdquo;</strong></>}
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs text-muted">
+            {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''}
+          </p>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="input-base py-1.5 text-sm w-auto"
+          >
+            <option value="relevancia">Relevancia</option>
+            <option value="precio_asc">Precio: menor a mayor</option>
+            <option value="precio_desc">Precio: mayor a menor</option>
+            <option value="nombre_asc">Nombre: A - Z</option>
+            <option value="nombre_desc">Nombre: Z - A</option>
+            <option value="stock_desc">Mayor stock primero</option>
+            <option value="stock_asc">Menor stock primero</option>
+          </select>
+        </div>
       </div>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted gap-3">
-          <Search size={40} className="opacity-20" />
-          <p className="text-center">No hay productos que coincidan con los filtros.</p>
-          <button onClick={clearAll} className="btn-secondary text-sm py-2">
-            Ver todos los productos
+      {filteredProducts.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border py-20 text-center text-muted">
+          <Package size={40} className="mx-auto mb-3 opacity-30" />
+          <p>No hay productos que coincidan con los filtros.</p>
+          <button
+            onClick={() => {
+              setSearch('');
+              setOnlyInStock(false);
+              setTipoVenta('todas');
+              setMaxPrice(maxPriceLimit);
+              setSortBy('relevancia');
+            }}
+            className="mt-4 text-sm text-brand-600 hover:underline"
+          >
+            Limpiar filtros
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {filtered.map((p) => <ProductCard key={p.id} product={p} />)}
+          {filteredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
         </div>
       )}
     </div>

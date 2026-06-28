@@ -57,7 +57,6 @@ export function ProductCard({ product: p }: Props) {
   const sinStock       = stockReal === 0;
 
   // ── Carrusel de imágenes + video ──
-  // ✅ VIDEO COMO SEGUNDO ÍTEM (después de la primera imagen)
   const items = [
     // Primera imagen
     ...(p.imagenes.length > 0 ? [{ type: 'image' as const, src: p.imagenes[0] }] : []),
@@ -66,9 +65,6 @@ export function ProductCard({ product: p }: Props) {
     // Resto de imágenes (a partir de la segunda)
     ...p.imagenes.slice(1).map((img) => ({ type: 'image' as const, src: img })),
   ];
-
-  // ✅ LOG PARA DEPURAR (elimina después de verificar)
-  console.log('ProductCard - video_url:', p.video_url, 'items length:', items.length);
 
   const [current, setCurrent] = useState(0);
   const total = items.length;
@@ -116,6 +112,16 @@ export function ProductCard({ product: p }: Props) {
           tabIndex={0}
           aria-label={`Ver detalle de ${p.nombre}`}
         >
+          {/* 🏷️ Badge "Pack" o "Curva" */}
+          <span
+            className={cn(
+              'absolute bottom-2 left-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-bold text-white shadow-sm',
+              esCurva ? 'bg-purple-600' : 'bg-blue-600'
+            )}
+          >
+            {esCurva ? 'Curva' : 'Pack'}
+          </span>
+
           {/* Contenido del carrusel */}
           {total === 0 ? (
             <div className="flex h-full items-center justify-center text-muted">
@@ -141,7 +147,7 @@ export function ProductCard({ product: p }: Props) {
             />
           )}
 
-          {/* ✅ CONTROLES DE NAVEGACIÓN SIEMPRE VISIBLES (sin opacidad, con fondo fuerte) */}
+          {/* Controles de navegación (siempre visibles) */}
           {total > 1 && (
             <>
               <button

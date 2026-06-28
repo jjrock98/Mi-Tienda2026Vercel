@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCartStore } from '@/hooks/useCart';
@@ -11,8 +11,10 @@ import { Wallet, Building2, AlertCircle, Loader2, ExternalLink, MapPin, Store, T
 import { cn } from '@/utils';
 import toast from 'react-hot-toast';
 import { MP_COMMISSION } from '@/lib/constants';
+import { InfoTooltip } from '@/components/common/InfoTooltip';
 
 type TipoEntrega = 'envio' | 'retiro';
+type ValidableField = 'nombre' | 'email' | 'telefono' | 'direccion' | 'ciudad';
 
 const PAYMENT_METHODS: { id: MetodoPago; label: string; desc: string; icon: React.ReactNode }[] = [
   { id: 'mercadopago',   label: 'Mercado Pago',        desc: 'Tarjetas, débito, crédito, efectivo y más', icon: <Wallet size={20} className="text-sky-500" /> },
@@ -34,6 +36,17 @@ function getItemLabel(item: any): string {
   return packLabel ? `${packLabel} ×${item.cantidadItems}` : `Pack ×${item.cantidadItems}`;
 }
 
+// ✅ Validaciones
+const validateEmail = (email: string) => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+};
+
+const validatePhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 6 && digits.length <= 15;
+};
+
 export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
   const router   = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -45,6 +58,25 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
     nombre: '', email: '', telefono: '',
     direccion: '', ciudad: '', codigo_postal: codigoPostal, notas: '',
   });
+
+  // ✅ Estados de error para validación (solo campos validables)
+  const [errors, setErrors] = useState<Record<ValidableField, boolean>>({
+    nombre: false,
+    email: false,
+    telefono: false,
+    direccion: false,
+    ciudad: false,
+  });
+
+  // ✅ Toques para mostrar errores solo después de interactuar
+  const [touched, setTouched] = useState<Record<ValidableField, boolean>>({
+    nombre: false,
+    email: false,
+    telefono: false,
+    direccion: false,
+    ciudad: false,
+  });
+
   const [submitting,  setSub]         = useState(false);
   const [mpStatus,    setMpStatus]    = useState<MPStatus>('idle');
   const [mpUrl,       setMpUrl]       = useState('');
@@ -52,16 +84,12 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
 
   const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
   const subtotalConMP = subtotal * (1 + MP_COMMISSION);
-  
-  // 🔧 ENVÍO TEMPORAL: forzamos costo 0 (se acuerda con el vendedor)
-  // const envio = tipoEntrega === 'envio' ? costoEnvio : 0; // ❌ ORIGINAL COMENTADO
-  const envio = 0; // ✅ VERSIÓN TEMPORAL
-
+  const envio = 0; // Temporal
   const totalSinMP = subtotal + envio;
   const totalConMP = subtotalConMP + envio;
   const totalAPagar = metodo === 'mercadopago' ? totalConMP : totalSinMP;
 
-  // Función para copiar al portapapeles
+  // Copiar al portapapeles
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success(`${label} copiado al portapapeles`);
@@ -90,6 +118,59 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
     }
   }, [tipoEntrega]);
 
+  // ✅ Validación en tiempo real
+  const validateField = useCallback((field: ValidableField, value: string) => {
+    switch (field) {
+      case 'email':
+        return !validateEmail(value);
+      case 'telefono':
+        return !validatePhone(value);
+      case 'nombre':
+        return value.trim().length < 2;
+      case 'direccion':
+        return tipoEntrega === 'envio' && value.trim().length < 5;
+      case 'ciudad':
+        return tipoEntrega === 'envio' && value.trim().length < 2;
+      default:
+        return false;
+    }
+  }, [tipoEntrega]);
+
+  // ✅ Marcar campo como tocado al perder foco
+  const handleBlur = (field: ValidableField) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  // ✅ Actualizar campo y validar
+  const handleChange = (field: ValidableField) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setForm(prev => ({ ...prev, [field]: value }));
+      if (touched[field]) {
+        setErrors(prev => ({ ...prev, [field]: validateField(field, value) }));
+      }
+    };
+
+  // ✅ Validar todo el formulario antes de enviar
+  const isFormValid = useCallback(() => {
+    const newErrors: Record<ValidableField, boolean> = {
+      nombre: validateField('nombre', form.nombre),
+      email: validateField('email', form.email),
+      telefono: validateField('telefono', form.telefono),
+      direccion: validateField('direccion', form.direccion),
+      ciudad: validateField('ciudad', form.ciudad),
+    };
+    setErrors(newErrors);
+    setTouched({
+      nombre: true,
+      email: true,
+      telefono: true,
+      direccion: true,
+      ciudad: true,
+    });
+    return !Object.values(newErrors).some(Boolean);
+  }, [form, validateField]);
+
   const set = (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -114,9 +195,7 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
       })),
       formData: { ...form, metodo_pago: metodo, tipo_entrega: tipoEntrega },
       subtotal: Number(subtotal),
-      // 🔧 ENVÍO TEMPORAL: forzamos 0
-      // costo_envio: Number(envio), // ❌ ORIGINAL COMENTADO
-      costo_envio: 0, // ✅ VERSIÓN TEMPORAL
+      costo_envio: 0,
       total: Number(totalAPagar),
     };
 
@@ -151,6 +230,13 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
       console.error('⚠️ subtotal o total inválidos:', { subtotal, totalAPagar, items });
       return;
     }
+
+    // ✅ Validar formulario antes de enviar
+    if (!isFormValid()) {
+      toast.error('Corregí los campos marcados en rojo.');
+      return;
+    }
+
     setSub(true);
     try {
       const orderId = await createOrder();
@@ -259,7 +345,7 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
 
@@ -308,35 +394,125 @@ export function CheckoutClient({ bankInfo }: CheckoutClientProps) {
             <div className="card p-6">
               <h2 className="font-semibold mb-4">Datos personales</h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div><label className="block text-xs font-medium mb-1">Nombre *</label><input required value={form.nombre} onChange={set('nombre')} className="input-base" /></div>
-                <div><label className="block text-xs font-medium mb-1">Email *</label><input required type="email" value={form.email} onChange={set('email')} className="input-base" /></div>
-                <div><label className="block text-xs font-medium mb-1">Teléfono *</label><input required type="tel" value={form.telefono} onChange={set('telefono')} className="input-base" /></div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Nombre *</label>
+                  <input
+                    required
+                    value={form.nombre}
+                    onChange={handleChange('nombre')}
+                    onBlur={() => handleBlur('nombre')}
+                    className={cn(
+                      'input-base',
+                      touched.nombre && errors.nombre && 'border-red-500 focus:ring-red-500'
+                    )}
+                  />
+                  {touched.nombre && errors.nombre && (
+                    <p className="text-xs text-red-500 mt-1">El nombre es requerido (mínimo 2 caracteres).</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Email *</label>
+                  <input
+                    required
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange('email')}
+                    onBlur={() => handleBlur('email')}
+                    className={cn(
+                      'input-base',
+                      touched.email && errors.email && 'border-red-500 focus:ring-red-500'
+                    )}
+                  />
+                  {touched.email && errors.email && (
+                    <p className="text-xs text-red-500 mt-1">Ingresá un email válido (ej: nombre@dominio.com).</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Teléfono *</label>
+                  <input
+                    required
+                    type="tel"
+                    value={form.telefono}
+                    onChange={handleChange('telefono')}
+                    onBlur={() => handleBlur('telefono')}
+                    className={cn(
+                      'input-base',
+                      touched.telefono && errors.telefono && 'border-red-500 focus:ring-red-500'
+                    )}
+                    placeholder="11 1234 5678"
+                  />
+                  {touched.telefono && errors.telefono && (
+                    <p className="text-xs text-red-500 mt-1">Ingresá un teléfono válido (mínimo 6 dígitos).</p>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* ── Dirección (solo si envío) ── */}
             {tipoEntrega === 'envio' && (
               <div className="card p-6">
-                <h2 className="font-semibold mb-4 flex items-center gap-2"><MapPin size={17} className="text-brand-500" />Dirección de entrega</h2>
-
-                {/* ✅ VERSIÓN TEMPORAL: mensaje de envío a convenir */}
-                <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 text-sm text-amber-700 dark:text-amber-400 flex items-start gap-3">
-                  <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-600" />
-                  <div>
-                    <strong>El costo de envío se acuerda con el vendedor.</strong>
-                    <p className="mt-1 text-xs">Te contactaremos después de la compra para coordinar el envío y el costo final.</p>
-                  </div>
-                </div>
+                <h2 className="font-semibold mb-4 flex items-center gap-2">
+                  <MapPin size={17} className="text-brand-500" /> Dirección de entrega
+                  <InfoTooltip>
+                    <p className="font-medium">El costo de envío se acuerda con el vendedor.</p>
+                    <p className="mt-1 text-muted">Te contactaremos después de la compra para coordinar el envío y el costo final.</p>
+                    <p className="mt-1 text-muted">📞 También podés consultarnos por WhatsApp para más información.</p>
+                  </InfoTooltip>
+                </h2>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2"><label className="block text-xs font-medium mb-1">Dirección *</label><input required value={form.direccion} onChange={set('direccion')} className="input-base" /></div>
-                  <div><label className="block text-xs font-medium mb-1">Ciudad *</label><input required value={form.ciudad} onChange={set('ciudad')} className="input-base" /></div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium mb-1">Dirección *</label>
+                    <input
+                      required
+                      value={form.direccion}
+                      onChange={handleChange('direccion')}
+                      onBlur={() => handleBlur('direccion')}
+                      className={cn(
+                        'input-base',
+                        touched.direccion && errors.direccion && 'border-red-500 focus:ring-red-500'
+                      )}
+                    />
+                    {touched.direccion && errors.direccion && (
+                      <p className="text-xs text-red-500 mt-1">La dirección es requerida (mínimo 5 caracteres).</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Ciudad *</label>
+                    <input
+                      required
+                      value={form.ciudad}
+                      onChange={handleChange('ciudad')}
+                      onBlur={() => handleBlur('ciudad')}
+                      className={cn(
+                        'input-base',
+                        touched.ciudad && errors.ciudad && 'border-red-500 focus:ring-red-500'
+                      )}
+                    />
+                    {touched.ciudad && errors.ciudad && (
+                      <p className="text-xs text-red-500 mt-1">La ciudad es requerida (mínimo 2 caracteres).</p>
+                    )}
+                  </div>
                   <div>
                     <label className="block text-xs font-medium mb-1">Código postal (opcional)</label>
-                    <input value={form.codigo_postal} onChange={set('codigo_postal')} className="input-base" />
+                    <input
+                      value={form.codigo_postal}
+                      onChange={set('codigo_postal')}
+                      className="input-base"
+                      placeholder="Ej: 1832"
+                    />
                     <p className="text-xs text-muted mt-1">No es necesario para el cálculo, solo para referencia.</p>
                   </div>
-                  <div className="sm:col-span-2"><label className="block text-xs font-medium mb-1">Notas (opcional)</label><textarea value={form.notas} onChange={set('notas')} rows={2} className="input-base resize-none" placeholder="Piso, depto, referencias…" /></div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium mb-1">Notas (opcional)</label>
+                    <textarea
+                      value={form.notas}
+                      onChange={set('notas')}
+                      rows={2}
+                      className="input-base resize-none"
+                      placeholder="Piso, depto, referencias…"
+                    />
+                  </div>
                 </div>
               </div>
             )}

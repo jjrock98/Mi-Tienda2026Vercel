@@ -17,7 +17,6 @@ export interface Product {
   colores: string[]; talles: string[];
   activo: boolean; destacado: boolean;
   video_url: string | null;
-  // ✅ Nuevos campos para curva
   tipo_venta: 'pack' | 'curva';
   unidades_curva: number | null;
   precio_curva: number | null;
@@ -34,6 +33,7 @@ export interface Product {
  * enviado          → En camino al cliente
  * entregado        → Entregado o retirado en local
  * cancelado        → Cancelado (pago rechazado, expirado o manual)
+ * reembolsado      → Reembolsado (total o parcial) ✅ NUEVO
  */
 export type OrderEstado =
   | 'pendiente'
@@ -42,7 +42,8 @@ export type OrderEstado =
   | 'procesando'
   | 'enviado'
   | 'entregado'
-  | 'cancelado';
+  | 'cancelado'
+  | 'reembolsado'; // ✅ AGREGADO
 
 export type MetodoPago  = 'mercadopago' | 'transferencia';
 export type TipoPack    = 'media_docena' | 'docena';
@@ -60,16 +61,13 @@ export interface Order {
   estado: OrderEstado;
   metodo_pago: MetodoPago;
   tipo_entrega: TipoEntrega;
-  // MP
   mp_preference_id: string | null;
   mp_payment_id: string | null;
   mp_status_detail: string | null;
   fecha_pago: string | null;
-  // Transferencia
   comprobante_url: string | null;
   comprobante_revisado: boolean;
   rejection_reason: string | null;
-  // Totales
   subtotal: number;
   costo_envio: number;
   total: number;
@@ -77,18 +75,17 @@ export interface Order {
   stock_descontado: boolean;
   created_at: string;
   updated_at: string;
-  // 👇 NUEVO: Código único para retiro en local
   codigo_retiro?: string | null;
   order_items?: OrderItem[];
 }
 
 export interface OrderItem {
   id: string; order_id: string; product_id: string;
-  tipo_pack: TipoPack | null; // puede ser null si es curva
+  tipo_pack: TipoPack | null;
   tipo_venta: 'pack' | 'curva';
-  unidades_por_item: number; // 6, 12 o unidades_curva
-  cantidad_items: number; // número de packs o curvas
-  unidades: number; // total unidades = cantidad_items * unidades_por_item
+  unidades_por_item: number;
+  cantidad_items: number;
+  unidades: number;
   precio_unit: number;
   subtotal: number;
   nombre_snap: string; imagen_snap: string | null;
@@ -146,10 +143,10 @@ export interface CartItem {
   productId: string; productSlug: string;
   nombre: string; imagen: string;
   tipoVenta: 'pack' | 'curva';
-  tipoPack?: TipoPack; // solo si tipoVenta === 'pack'
-  unidadesPorItem: number; // 6, 12 o unidades_curva
-  cantidadItems: number; // número de packs o curvas
-  unidades: number; // total unidades
+  tipoPack?: TipoPack;
+  unidadesPorItem: number;
+  cantidadItems: number;
+  unidades: number;
   precioUnitario: number;
   subtotal: number;
 }
@@ -204,8 +201,7 @@ export const PACK_CONFIG: Record<TipoPack, { label: string; unidades: number }> 
 
 export type MPPaymentStatus = 'approved' | 'pending' | 'rejected' | 'cancelled' | null;
 
-/** MP status_detail values para efectivo/ticket */
 export const MP_CASH_STATUS_DETAILS = [
-  'waiting_for_payment',  // Cupón generado, esperando pago
+  'waiting_for_payment',
   'pending_waiting_payment',
 ] as const;

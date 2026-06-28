@@ -52,12 +52,13 @@ export function truncate(text: string, maxLength: number): string {
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   pendiente:       'Pendiente',
-  pendiente_pago:  'Esperando pago',   // ← cupón efectivo generado
+  pendiente_pago:  'Esperando pago',
   pagado:          'Pagado',
   procesando:      'Procesando',
   enviado:         'Enviado',
   entregado:       'Entregado',
   cancelado:       'Cancelado',
+  reembolsado:     'Reembolsado', // ✅ AGREGADO
 };
 
 export const ORDER_STATUS_COLORS: Record<string, string> = {
@@ -68,6 +69,7 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
   enviado:         'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   entregado:       'bg-teal-100   text-teal-800   dark:bg-teal-900/30   dark:text-teal-400',
   cancelado:       'bg-red-100    text-red-800    dark:bg-red-900/30    dark:text-red-400',
+  reembolsado:     'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400', // ✅ AGREGADO
 };
 
 /** Calcula la fecha de vencimiento de un cupón de efectivo (+3 días) */

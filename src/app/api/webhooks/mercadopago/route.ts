@@ -249,20 +249,44 @@ async function processPaymentStatus(
 
     case 'refunded':
     case 'charged_back': {
+      // 1. Restaurar stock si estaba descontado
       if (currentOrder.stock_descontado) {
-        await admin.rpc('devolver_stock_seguro', { p_order_id: orderId });
+        const { data: restoreResult } = await admin.rpc('devolver_stock_seguro', {
+          p_order_id: orderId,
+        });
+
+        if (!restoreResult?.success) {
+          console.error(`[MP Webhook] Error devolviendo stock para ${orderId}:`, restoreResult);
+        } else {
+          console.log(`[MP Webhook] Stock restaurado para pedido ${orderId}`);
+        }
       }
 
+      // 2. Determinar motivo
+      const motivo = status === 'refunded' ? 'Reembolso total' : 'Contracargo';
+
+      // 3. Actualizar orden a "reembolsado"
       await admin
         .from('orders')
         .update({
-          estado:           'cancelado' as OrderEstado,
+          estado:           'reembolsado' as OrderEstado,
           mp_status_detail: status_detail,
+          rejection_reason: `${motivo} (MP status: ${status_detail})`,
           updated_at:       new Date().toISOString(),
         })
         .eq('id', orderId);
 
-      console.log(`[MP Webhook] Pedido ${orderId} → ${status} (reembolso/contracargo)`);
+      // 4. Enviar email al cliente
+      const { data: updatedOrder } = await admin
+        .from('orders').select('*, order_items(*)').eq('id', orderId).single();
+
+      if (updatedOrder) {
+        await sendOrderStatusEmail(updatedOrder as Order).catch((err) =>
+          console.error('[MP Webhook] Error enviando email de reembolso:', err)
+        );
+      }
+
+      console.log(`[MP Webhook] Pedido ${orderId} → reembolsado (${status})`);
       break;
     }
 

@@ -2,13 +2,14 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Trash2, ShoppingBag, Minus, Plus, MapPin, Truck, AlertCircle } from 'lucide-react';
+import { Trash2, ShoppingBag, Minus, Plus, MapPin, Truck, AlertCircle, Info } from 'lucide-react';
 import { useCartStore } from '@/hooks/useCart';
 import { formatPrice } from '@/utils';
 import { PACK_CONFIG } from '@/types';
 import type { TipoPack } from '@/types';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { InfoTooltip } from '@/components/common/InfoTooltip';
 
 export default function CarritoPage() {
   const { items, costoEnvio, removeItem, updateQuantity, setShipping, zonaEnvio } =
@@ -107,26 +108,7 @@ export default function CarritoPage() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidadItems), 0);
-  // 🔧 ENVÍO TEMPORAL: usamos 0 para que el total no sume envío (el costo se acuerda con el vendedor)
-  const totalCalculado = subtotal; // ❌ Antes: subtotal + (costoEnvio || 0)
-
-  // 🚚 ENVÍO - CÓDIGO COMENTADO PARA REACTIVAR CUANDO TENGA LA API
-  /*
-  const calcShipping = async () => {
-    if (!cp.trim()) { toast.error('Ingresá un código postal'); return; }
-    setCalc(true);
-    const res = await fetch(`/api/shipping?cp=${cp.trim()}`);
-    const data = await res.json();
-    if (data.error) {
-      toast.error(data.error);
-      setShipping(cp, 0, '');
-    } else {
-      setShipping(cp, data.costo, data.zona);
-      toast.success(`Envío a ${data.zona}: ${formatPrice(data.costo)}`);
-    }
-    setCalc(false);
-  };
-  */
+  const totalCalculado = subtotal;
 
   const handleUpdateQuantity = async (item: any, newCantidad: number) => {
     if (newCantidad <= 0) {
@@ -146,12 +128,10 @@ export default function CarritoPage() {
     }
   };
 
-  // ✅ Función getItemLabel corregida (sin error de TypeScript)
   const getItemLabel = (item: any): string => {
     if (item.tipoVenta === 'curva') {
       return `Curva de ${item.unidadesPorItem} uds`;
     }
-    // Si es pack, aseguramos que tipoPack sea válido
     const packKey = item.tipoPack as TipoPack;
     const packLabel = PACK_CONFIG[packKey]?.label;
     return packLabel ? `${packLabel} ×${item.cantidadItems}` : `Pack ×${item.cantidadItems}`;
@@ -261,9 +241,13 @@ export default function CarritoPage() {
           <div className="card p-5">
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <Truck size={16} className="text-brand-500" /> Envío
+              <InfoTooltip>
+                <p className="font-medium">El costo de envío se acuerda con el vendedor.</p>
+                <p className="mt-1 text-muted">Te contactaremos después de la compra para coordinar el envío y el costo final.</p>
+                <p className="mt-1 text-muted">📞 También podés consultarnos por WhatsApp para más información.</p>
+              </InfoTooltip>
             </h3>
             
-            {/* ✅ VERSIÓN TEMPORAL (ACTIVA) */}
             <div className="text-sm text-muted space-y-2">
               <p>📦 El costo de envío se acuerda con el vendedor.</p>
               <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -271,33 +255,7 @@ export default function CarritoPage() {
               </p>
             </div>
 
-            {/* 🚚 CÓDIGO ORIGINAL DE CÁLCULO DE ENVÍO (COMENTADO PARA REACTIVAR) */}
-            {/*
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                <input
-                  value={cp}
-                  onChange={(e) => setCp(e.target.value)}
-                  placeholder="Código postal"
-                  className="input-base pl-9 py-2 text-sm"
-                  onKeyDown={(e) => e.key === 'Enter' && calcShipping()}
-                />
-              </div>
-              <button
-                onClick={calcShipping}
-                disabled={calcLoading}
-                className="btn-secondary px-3 py-2 text-xs whitespace-nowrap"
-              >
-                {calcLoading ? '…' : 'Calcular'}
-              </button>
-            </div>
-            {zonaEnvio && (
-              <p className="mt-2 text-xs text-green-600 dark:text-green-400">
-                Zona: {zonaEnvio} · {formatPrice(costoEnvio)}
-              </p>
-            )}
-            */}
+            {/* Código original comentado */}
           </div>
 
           <div className="card p-5 space-y-3">
