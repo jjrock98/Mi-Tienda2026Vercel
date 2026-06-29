@@ -9,7 +9,7 @@ import { PACK_CONFIG } from '@/types';
 import type { TipoPack } from '@/types';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
-import { InfoTooltip } from '@/components/common/InfoTooltip';
+import InfoTooltip from '@/components/common/InfoTooltip';
 
 export default function CarritoPage() {
   const { items, costoEnvio, removeItem, updateQuantity, setShipping, zonaEnvio } =

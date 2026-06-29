@@ -12,7 +12,6 @@ export function InfoTooltip({ children, className }: InfoTooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
@@ -45,3 +44,6 @@ export function InfoTooltip({ children, className }: InfoTooltipProps) {
     </div>
   );
 }
+
+// ✅ AGREGADO: export default para evitar problemas de importación en producción
+export default InfoTooltip;
