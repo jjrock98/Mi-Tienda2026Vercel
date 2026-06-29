@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { ShoppingCart, Heart, Menu, X, User, Sun, Moon, Search } from 'lucide-react';
-import { useTheme } from 'next-themes'; // ✅ Importado correctamente (debe estar instalado)
+import { useTheme } from 'next-themes';
 import { useCartStore } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/utils';
@@ -24,10 +24,8 @@ export function Navbar() {
   const [query,      setQuery]     = useState('');
   const searchRef    = useRef<HTMLInputElement>(null);
   
-  // ✅ next-themes hook (ahora funciona porque está instalado)
   const { theme, setTheme } = useTheme();
   
-  // ✅ Guard de montaje para evitar hidratación
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -45,13 +43,11 @@ export function Navbar() {
     }
   };
 
-  // Cerrar menús al cambiar de ruta
   useEffect(() => {
     setUserMenu(false);
     setOpen(false);
   }, [pathname]);
 
-  // ✅ Placeholder mientras no está montado (evita errores de hidratación)
   if (!mounted) {
     return (
       <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-md">
@@ -60,7 +56,6 @@ export function Navbar() {
             {process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda'}
           </div>
           <div className="flex items-center gap-1">
-            {/* Placeholder para el botón de tema (evita saltos de layout) */}
             <div className="w-9 h-9" />
           </div>
         </div>
@@ -71,12 +66,10 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 gap-3">
-        {/* Logo */}
         <Link href="/" className="font-display text-xl font-bold text-brand-600 dark:text-brand-400 shrink-0">
           {process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda'}
         </Link>
 
-        {/* Desktop links */}
         <ul className="hidden items-center gap-6 md:flex">
           {LINKS.map(({ href, label }) => (
             <li key={href}>
@@ -90,7 +83,6 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* Search bar (desktop, expandable) */}
         <form
           onSubmit={handleSearch}
           className={cn(
@@ -119,9 +111,7 @@ export function Navbar() {
           </button>
         </form>
 
-        {/* Actions */}
         <div className="flex items-center gap-1">
-          {/* ✅ Botón de tema con next-themes y guard de montaje */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="btn-ghost p-2 text-muted"
@@ -131,14 +121,12 @@ export function Navbar() {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          {/* Wishlist */}
           {user && (
             <Link href="/wishlist" className="btn-ghost p-2 text-muted" aria-label="Wishlist">
               <Heart size={18} />
             </Link>
           )}
 
-          {/* Cart */}
           <Link href="/carrito" className="btn-ghost relative p-2 text-muted" aria-label="Carrito">
             <ShoppingCart size={18} />
             {itemCount > 0 && (
@@ -148,7 +136,6 @@ export function Navbar() {
             )}
           </Link>
 
-          {/* User */}
           {user ? (
             <div className="relative">
               <button
@@ -184,7 +171,6 @@ export function Navbar() {
             </Link>
           )}
 
-          {/* Mobile menu toggle */}
           <button
             className="btn-ghost p-2 md:hidden"
             onClick={() => setOpen(!open)}
@@ -195,10 +181,8 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile menu */}
       {open && (
         <div className="border-t border-border bg-surface px-4 pb-4 md:hidden animate-fade-in">
-          {/* Mobile search */}
           <form onSubmit={handleSearch} className="mt-3 flex gap-2">
             <input
               value={query} onChange={(e) => setQuery(e.target.value)}
@@ -209,7 +193,6 @@ export function Navbar() {
               <Search size={15} />
             </button>
           </form>
-
           <ul className="mt-3 space-y-1">
             {LINKS.map(({ href, label }) => (
               <li key={href}>
@@ -232,3 +215,5 @@ export function Navbar() {
     </header>
   );
 }
+
+export default Navbar;

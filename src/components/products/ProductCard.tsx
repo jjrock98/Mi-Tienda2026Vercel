@@ -267,3 +267,6 @@ export function ProductCard({ product: p }: Props) {
     </>
   );
 }
+
+// ✅ AGREGADO: export default para dynamic import
+export default ProductCard;

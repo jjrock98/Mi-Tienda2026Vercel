@@ -71,7 +71,7 @@ export function Footer({ contactInfo }: FooterProps) {
                   className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
                   aria-label="Instagram"
                 >
-                  <Camera size={18} /> {/* 👈 CAMBIADO */}
+                  <Camera size={18} />
                 </a>
               )}
               {facebook && (
@@ -82,7 +82,7 @@ export function Footer({ contactInfo }: FooterProps) {
                   className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
                   aria-label="Facebook"
                 >
-                  <Share2 size={18} /> {/* 👈 CAMBIADO */}
+                  <Share2 size={18} />
                 </a>
               )}
               {whatsapp && (
@@ -108,4 +108,4 @@ export function Footer({ contactInfo }: FooterProps) {
   );
 }
 
-export default Footer; // 👈 AGREGADO
+export default Footer;

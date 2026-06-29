@@ -33,3 +33,6 @@ export function ProductModalTrigger({ product, triggerLabel }: Props) {
     </>
   );
 }
+
+// ✅ AGREGADO: export default para dynamic import
+export default ProductModalTrigger;

@@ -400,3 +400,6 @@ export function ProductModal({ product, onClose }: Props) {
     </div>
   );
 }
+
+// ✅ AGREGADO: export default para dynamic import
+export default ProductModal;

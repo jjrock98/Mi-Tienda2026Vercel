@@ -37,7 +37,6 @@ export function EmailVerificationBanner() {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      // If email_confirmed_at is null, email not verified
       if (!user.email_confirmed_at) {
         setEmail(user.email ?? '');
         setShow(true);
@@ -79,7 +78,6 @@ export function EmailVerificationBanner() {
   return (
     <div className="relative z-40 bg-yellow-500 dark:bg-yellow-600 text-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
-        {/* Icon + message */}
         <div className="flex items-center gap-2.5 text-sm">
           <MailWarning size={16} className="shrink-0" />
           <span className="font-medium">
@@ -88,7 +86,6 @@ export function EmailVerificationBanner() {
           </span>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           {provider && (
             <a
@@ -121,3 +118,5 @@ export function EmailVerificationBanner() {
     </div>
   );
 }
+
+export default EmailVerificationBanner;

@@ -220,3 +220,6 @@ export function ProductFilters({ products }: Props) {
     </div>
   );
 }
+
+// ✅ AGREGADO: export default para dynamic import
+export default ProductFilters;
