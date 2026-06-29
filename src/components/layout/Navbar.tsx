@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { ShoppingCart, Heart, Menu, X, User, Sun, Moon, Search } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useTheme } from 'next-themes'; // ✅ Importado correctamente (debe estar instalado)
 import { useCartStore } from '@/hooks/useCart';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/utils';
@@ -23,8 +23,11 @@ export function Navbar() {
   const [searching,  setSearching] = useState(false);
   const [query,      setQuery]     = useState('');
   const searchRef    = useRef<HTMLInputElement>(null);
+  
+  // ✅ next-themes hook (ahora funciona porque está instalado)
   const { theme, setTheme } = useTheme();
   
+  // ✅ Guard de montaje para evitar hidratación
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -47,6 +50,23 @@ export function Navbar() {
     setUserMenu(false);
     setOpen(false);
   }, [pathname]);
+
+  // ✅ Placeholder mientras no está montado (evita errores de hidratación)
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 gap-3">
+          <div className="font-display text-xl font-bold text-brand-600 dark:text-brand-400">
+            {process.env.NEXT_PUBLIC_TIENDA_NOMBRE ?? 'Mi Tienda'}
+          </div>
+          <div className="flex items-center gap-1">
+            {/* Placeholder para el botón de tema (evita saltos de layout) */}
+            <div className="w-9 h-9" />
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-md">
@@ -101,20 +121,14 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {/* Theme */}
+          {/* ✅ Botón de tema con next-themes y guard de montaje */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="btn-ghost p-2 text-muted"
             aria-label="Cambiar tema"
             suppressHydrationWarning
           >
-            {!mounted ? (
-              <div className="w-[18px] h-[18px]" suppressHydrationWarning />
-            ) : (
-              theme === 'dark' 
-                ? <Sun size={18} suppressHydrationWarning /> 
-                : <Moon size={18} suppressHydrationWarning />
-            )}
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
           {/* Wishlist */}
@@ -147,7 +161,6 @@ export function Navbar() {
                 </span>
               </button>
               {userMenu && (
-                // Eliminamos el overlay con fixed y usamos un onClick en el botón para cerrar
                 <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-xl border border-border bg-surface shadow-lg">
                   <Link href="/perfil"       className="block px-4 py-2.5 text-sm hover:bg-surface-2" onClick={() => setUserMenu(false)}>Mi perfil</Link>
                   <Link href="/mis-pedidos"  className="block px-4 py-2.5 text-sm hover:bg-surface-2" onClick={() => setUserMenu(false)}>Mis pedidos</Link>

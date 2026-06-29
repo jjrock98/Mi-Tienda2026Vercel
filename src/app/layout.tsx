@@ -75,7 +75,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   try {
     const supabase = await createClient();
-    
     const { data: contactInfo, error } = await supabase
       .from('contact_info')
       .select('*')
@@ -84,13 +83,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     if (!error && contactInfo) {
       contactData = contactInfo;
     }
-  } catch (err: unknown) {
-    // Verificamos si es un error de Next.js para dejarlo pasar
+  } catch (err) {
+    // Ignoramos errores de Next.js internos (ej. DYNAMIC_SERVER_USAGE)
     if (err instanceof Error && 'digest' in err && err.digest === 'DYNAMIC_SERVER_USAGE') {
       throw err;
     }
-    // Si es otro tipo de error, lo ignoramos para que la página cargue siempre
-    console.error("Error al cargar datos de contacto:", err);
+    console.error('Error al cargar datos de contacto:', err);
   }
 
   return (

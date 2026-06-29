@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Toaster, toast } from 'react-hot-toast';
 import { CartFloatingButton } from '@/components/cart/CartFloatingButton';
@@ -11,12 +11,7 @@ import { CookieConsent } from '@/components/common/CookieConsent';
 import { BackToTop } from '@/components/common/BackToTop';
 import { ConfirmationMessage } from '@/components/common/ConfirmationMessage';
 
-// Componentes dinámicos (evitan problemas de hidratación)
-const Navbar = dynamic(
-  () => import('@/components/layout/Navbar').then((mod) => mod.Navbar),
-  { ssr: false }
-);
-
+const Navbar = dynamic(() => import('@/components/layout/Navbar').then((mod) => mod.Navbar), { ssr: false });
 const EmailVerificationBanner = dynamic(
   () => import('@/components/common/EmailVerificationBanner').then((mod) => mod.EmailVerificationBanner),
   { ssr: false }
@@ -28,33 +23,31 @@ interface ClientLayoutProps {
 }
 
 export default function ClientLayout({ children, contactInfo }: ClientLayoutProps) {
-  // Cerrar toasts al hacer clic fuera
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
+
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.react-hot-toast')) {
+      if (!(e.target as HTMLElement).closest('.react-hot-toast')) {
         toast.dismiss();
       }
     };
-
-    const timeout = setTimeout(() => {
-      document.addEventListener('click', handleClickOutside);
-    }, 100);
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-      clearTimeout(timeout);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // Mientras no está montado, mostramos un placeholder simple para evitar hidratación
+  if (!mounted) {
+    return <div className="min-h-screen bg-surface" />;
+  }
 
   return (
     <>
       <EmailVerificationBanner />
       <div className="flex min-h-screen flex-col">
         <Navbar />
-        <main className="flex-1 pb-32 md:pb-20 lg:pb-16">
-          {children}
-        </main>
+        <main className="flex-1 pb-32 md:pb-20 lg:pb-16">{children}</main>
         <Footer contactInfo={contactInfo} />
       </div>
 
@@ -69,9 +62,7 @@ export default function ClientLayout({ children, contactInfo }: ClientLayoutProp
         toastOptions={{
           className: 'dark:bg-zinc-800 dark:text-white text-sm cursor-pointer',
           duration: 4000,
-          style: {
-            marginTop: '80px',
-          },
+          style: { marginTop: '80px' },
         }}
       />
 
