@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   sendPaymentConfirmedEmail,
   sendAdminPaymentConfirmedEmail,
+  sendOrderConfirmationEmail, // 👈 NUEVA IMPORTACIÓN
 } from '@/lib/email';
 
 async function verifyAdmin() {
@@ -60,10 +61,14 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Enviar correos
+  // 📧 Enviar correos (AHORA CON EL CORREO COMPLETO)
   if (order) {
     try {
+      // ✅ Correo completo (con código de retiro, detalle de productos, etc.)
+      await sendOrderConfirmationEmail(order);
+      // Correo genérico de "Pago confirmado" (opcional, pero lo dejamos)
       await sendPaymentConfirmedEmail(order);
+      // Notificación al admin
       await sendAdminPaymentConfirmedEmail(order);
     } catch (err) {
       console.error('Error enviando correos de aprobación:', err);
