@@ -36,56 +36,59 @@ function getResendClient(): Resend {
 
 // ─── Cliente ──────────────────────────────────────────────────────────────────
 
+// ✅ Mejorada con maybeSingle() y try/catch con stack trace
 export async function sendOrderConfirmationEmail(order: Order) {
   console.log(`📤 Enviando confirmación de pedido #${order.id.slice(0,8).toUpperCase()} a ${order.email}`);
 
-  const admin = createAdminClient();
-  let bankInfo = null;
-  let locationInfo = null;
-
-  // Obtener datos bancarios
   try {
-    const { data: bankData } = await admin
-      .from('bank_info')
-      .select('titular, cbu, alias, banco')
-      .single();
+    const admin = createAdminClient();
+    let bankInfo = null;
+    let locationInfo = null;
 
-    if (bankData) {
-      bankInfo = {
-        titular: bankData.titular,
-        cbu: bankData.cbu,
-        alias: bankData.alias,
-        banco: bankData.banco,
-      };
+    // Obtener datos bancarios (con maybeSingle para evitar error si no hay registros)
+    try {
+      const { data: bankData } = await admin
+        .from('bank_info')
+        .select('titular, cbu, alias, banco')
+        .maybeSingle(); // <--- CAMBIADO: .maybeSingle() en lugar de .single()
+
+      if (bankData) {
+        bankInfo = {
+          titular: bankData.titular,
+          cbu: bankData.cbu,
+          alias: bankData.alias,
+          banco: bankData.banco,
+        };
+      }
+    } catch (error) {
+      console.warn('⚠️ No se pudieron obtener datos bancarios:', error);
     }
-  } catch (error) {
-    console.warn('⚠️ No se pudieron obtener datos bancarios:', error);
-  }
 
-  // Obtener datos de ubicación
-  try {
-    const { data: locationData } = await admin
-      .from('location_info')
-      .select('direccion, horario, mapa_iframe_url')
-      .single();
+    // Obtener datos de ubicación (también con maybeSingle)
+    try {
+      const { data: locationData } = await admin
+        .from('location_info')
+        .select('direccion, horario, mapa_iframe_url')
+        .maybeSingle(); // <--- CAMBIADO: .maybeSingle()
 
-    if (locationData) {
-      locationInfo = {
-        direccion: locationData.direccion,
-        horario: locationData.horario,
-        mapaUrl: locationData.mapa_iframe_url || '#',
-      };
+      if (locationData) {
+        locationInfo = {
+          direccion: locationData.direccion,
+          horario: locationData.horario,
+          mapaUrl: locationData.mapa_iframe_url || '#',
+        };
+      }
+    } catch (error) {
+      console.warn('⚠️ No se pudieron obtener datos de ubicación:', error);
     }
-  } catch (error) {
-    console.warn('⚠️ No se pudieron obtener datos de ubicación:', error);
-  }
 
-  const tipoEntrega = order.tipo_entrega; // 'envio' o 'retiro'
-  const metodoPago = order.metodo_pago;   // 'mercadopago' o 'transferencia'
+    const tipoEntrega = order.tipo_entrega; // 'envio' o 'retiro'
+    const metodoPago = order.metodo_pago;   // 'mercadopago' o 'transferencia'
 
-  const html = orderConfirmationHtml(order, tipoEntrega, metodoPago, bankInfo, locationInfo);
+    // Generar HTML (puede fallar si faltan campos en order)
+    const html = orderConfirmationHtml(order, tipoEntrega, metodoPago, bankInfo, locationInfo);
 
-  try {
+    // Enviar el correo
     const result = await getResendClient().emails.send({
       from:    FROM,
       to:      order.email,
@@ -95,10 +98,17 @@ export async function sendOrderConfirmationEmail(order: Order) {
     console.log(`✅ Confirmación enviada a ${order.email}`, result);
     return result;
   } catch (error) {
-    console.error(`❌ Error en sendOrderConfirmationEmail para ${order.email}:`, error);
+    // ✅ MEJORADO: log con stack trace completo para depurar
+    console.error(`❌ Error DETALLADO en sendOrderConfirmationEmail para ${order.email}:`);
+    console.error('   Mensaje:', error instanceof Error ? error.message : String(error));
+    console.error('   Stack:', error instanceof Error ? error.stack : '');
+    // Re-lanzamos el error para que el webhook lo vea si quiere
     throw error;
   }
 }
+
+// El resto de funciones quedan exactamente igual (no se modifican)
+// -----------------------------------------------------------------
 
 export async function sendOrderStatusEmail(order: Order) {
   console.log(`📤 Enviando actualización de estado (${order.estado}) a ${order.email}`);

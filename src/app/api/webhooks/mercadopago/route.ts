@@ -182,9 +182,11 @@ async function processPaymentStatus(
         break;
       }
 
+      // ✅ [CAMBIADO] Agregamos 'estado: 'pagado'' y mantuvimos el resto
       await admin
         .from('orders')
         .update({
+          estado:           'pagado', // 👈 NUEVO
           mp_payment_id:    String(mpPaymentId),
           mp_status_detail: status_detail,
           fecha_pago:       date_approved ?? new Date().toISOString(),
@@ -192,10 +194,18 @@ async function processPaymentStatus(
         })
         .eq('id', orderId);
 
+      // 🔍 Log para verificar que order_items se carga correctamente
       const { data: paidOrder } = await admin
         .from('orders').select('*, order_items(*)').eq('id', orderId).single();
 
+      console.log(
+        `[MP Webhook] paidOrder tiene order_items?`,
+        !!paidOrder?.order_items,
+        paidOrder?.order_items?.length ?? 0
+      );
+
       if (paidOrder) {
+        // ✅ Ahora enviamos el correo con mejor manejo de errores (ya está en email.ts)
         await sendOrderConfirmationEmail(paidOrder as Order).catch((err) =>
           console.error('[MP Webhook] Error enviando email de confirmación:', err)
         );

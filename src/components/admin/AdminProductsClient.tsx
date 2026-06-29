@@ -50,20 +50,40 @@ export function AdminProductsClient({ initialProducts }: { initialProducts: Prod
     setEditing((prev) => ({ ...prev!, [k]: val.split(',').map((s) => s.trim()).filter(Boolean) }));
   };
 
+  // ✅ VERSIÓN MEJORADA CON MANEJO DE ERRORES
   const uploadImages = async (files: FileList) => {
     setUploading(true);
     const urls: string[] = [];
+    const errors: string[] = [];
+
     for (const file of Array.from(files)) {
       const path = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
       const { error } = await supabase.storage.from('products').upload(path, file, { upsert: true });
-      if (!error) {
+
+      if (error) {
+        errors.push(`${file.name}: ${error.message}`);
+        console.error(`[Upload error] ${file.name}:`, error);
+      } else {
         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(path);
         urls.push(publicUrl);
       }
     }
-    setEditing((prev) => ({ ...prev!, imagenes: [...(prev?.imagenes ?? []), ...urls] }));
+
+    if (urls.length > 0) {
+      setEditing((prev) => ({
+        ...prev!,
+        imagenes: [...(prev?.imagenes ?? []), ...urls]
+      }));
+      toast.success(`${urls.length} imagen${urls.length !== 1 ? 'es' : ''} subida${urls.length !== 1 ? 's' : ''}`);
+    }
+
+    if (errors.length > 0) {
+      const msg = errors.slice(0, 3).join('; ');
+      const extra = errors.length > 3 ? ` y ${errors.length - 3} más` : '';
+      toast.error(`Error al subir: ${msg}${extra}`);
+    }
+
     setUploading(false);
-    toast.success(`${urls.length} imagen${urls.length !== 1 ? 'es' : ''} subida${urls.length !== 1 ? 's' : ''}`);
   };
 
   const removeImage = (url: string) => {
