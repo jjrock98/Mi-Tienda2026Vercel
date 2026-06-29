@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Instagram, Facebook, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
+import { Camera, Share2, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
 import type { ContactInfo } from '@/types';
 
 interface FooterProps {
@@ -21,13 +21,11 @@ export function Footer({ contactInfo }: FooterProps) {
     <footer className="border-t border-border bg-surface-2 mt-8 md:mt-16 pb-24 md:pb-0">
       <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Brand */}
           <div>
             <p className="font-display text-lg font-bold text-brand-600">{tienda}</p>
             <p className="mt-2 text-sm text-muted">Venta por packs. Calidad garantizada.</p>
           </div>
 
-          {/* Links Tienda */}
           <div>
             <p className="mb-3 text-sm font-semibold">Tienda</p>
             <ul className="space-y-2 text-sm text-muted">
@@ -38,7 +36,6 @@ export function Footer({ contactInfo }: FooterProps) {
             </ul>
           </div>
 
-          {/* Contacto (dinámico) */}
           <div>
             <p className="mb-3 text-sm font-semibold">Contacto</p>
             <ul className="space-y-2 text-sm text-muted">
@@ -63,7 +60,6 @@ export function Footer({ contactInfo }: FooterProps) {
             </ul>
           </div>
 
-          {/* Redes sociales */}
           <div>
             <p className="mb-4 text-sm font-semibold">Redes sociales</p>
             <div className="flex gap-3">
@@ -75,7 +71,7 @@ export function Footer({ contactInfo }: FooterProps) {
                   className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
                   aria-label="Instagram"
                 >
-                  <Instagram size={18} />
+                  <Camera size={18} /> {/* 👈 CAMBIADO */}
                 </a>
               )}
               {facebook && (
@@ -86,7 +82,7 @@ export function Footer({ contactInfo }: FooterProps) {
                   className="rounded-lg p-2 hover:bg-surface transition-colors text-muted hover:text-foreground"
                   aria-label="Facebook"
                 >
-                  <Facebook size={18} />
+                  <Share2 size={18} /> {/* 👈 CAMBIADO */}
                 </a>
               )}
               {whatsapp && (
@@ -111,3 +107,5 @@ export function Footer({ contactInfo }: FooterProps) {
     </footer>
   );
 }
+
+export default Footer; // 👈 AGREGADO
