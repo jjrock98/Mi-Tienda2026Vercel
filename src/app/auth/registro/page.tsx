@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
-import { Mail, Lock, User, Chrome, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, Lock, User, Globe, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react'; // ✅ Chrome → Globe
 import { cn } from '@/utils';
 import toast from 'react-hot-toast';
 
@@ -88,7 +88,6 @@ export default function RegistroPage() {
       password: data.password,
       options: {
         data: { full_name: data.nombre.trim() },
-        // 🔽 CAMBIO: ahora redirige a la home con confirmed=true
         emailRedirectTo: `${window.location.origin}/?confirmed=true`,
       },
     });
@@ -131,7 +130,7 @@ export default function RegistroPage() {
         <p className="text-center text-sm text-muted mb-8">Registrate para comprar fácilmente</p>
 
         <button onClick={handleGoogle} className="btn-secondary w-full mb-4 gap-3">
-          <Chrome size={18} className="text-red-500" />
+          <Globe size={18} className="text-red-500" /> {/* ✅ Chrome → Globe */}
           Registrarse con Google
         </button>
 
@@ -206,7 +205,6 @@ export default function RegistroPage() {
               </button>
             </div>
 
-            {/* Password strength bar */}
             {passwordValue.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex gap-1">

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Mail, Lock, Eye, EyeOff, Chrome } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Globe } from 'lucide-react'; // ✅ Chrome → Globe
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -50,7 +50,7 @@ export default function LoginPage() {
 
         {/* Google */}
         <button onClick={handleGoogle} className="btn-secondary w-full mb-4 gap-3">
-          <Chrome size={18} className="text-red-500" />
+          <Globe size={18} className="text-red-500" /> {/* ✅ Chrome → Globe */}
           Continuar con Google
         </button>
 
@@ -87,7 +87,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* ✅ Fixed: forgot password link */}
           <div className="flex justify-end">
             <Link
               href="/auth/reset-password"

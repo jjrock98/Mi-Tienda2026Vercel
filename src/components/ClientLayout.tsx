@@ -35,7 +35,6 @@ export default function ClientLayout({ children, contactInfo }: ClientLayoutProp
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Mientras no está montado, mostramos un placeholder simple para evitar hidratación
   if (!mounted) {
     return <div className="min-h-screen bg-surface" />;
   }
