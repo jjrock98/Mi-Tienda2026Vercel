@@ -11,11 +11,14 @@ import type { Product } from '@/types';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
-// ✅ AHORA usa la exportación por defecto (sin .then)
-const ProductModal = dynamic(
-  () => import('@/components/products/ProductModal'),
-  { ssr: false }
-);
+// ✅ ProductModal está desactivado temporalmente para pruebas
+// const ProductModal = dynamic(
+//   () => import('@/components/products/ProductModal'),
+//   { ssr: false }
+// );
+
+// 🔄 Usamos un componente placeholder mientras depuramos
+const ProductModal = () => <div>Modal temporal desactivado</div>;
 
 interface Props { product: Product }
 
@@ -262,12 +265,24 @@ export function ProductCard({ product: p }: Props) {
         </div>
       </article>
 
+      {/* 🔧 ProductModal desactivado temporalmente para depuración */}
       {modalOpen && (
-        <ProductModal product={{ ...p, stock_unidades: stockReal }} onClose={() => setModalOpen(false)} />
+        // <ProductModal product={{ ...p, stock_unidades: stockReal }} onClose={() => setModalOpen(false)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-2xl bg-white dark:bg-zinc-800 p-8 max-w-md text-center">
+            <h2 className="text-xl font-bold mb-2">Modal desactivado</h2>
+            <p className="text-muted">ProductModal está comentado para depuración.</p>
+            <button
+              onClick={() => setModalOpen(false)}
+              className="mt-4 btn-primary"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
     </>
   );
 }
 
-// ✅ Exportación por defecto
 export default ProductCard;
