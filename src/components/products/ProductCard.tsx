@@ -11,8 +11,9 @@ import type { Product } from '@/types';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
+// ✅ AHORA usa la exportación por defecto (sin .then)
 const ProductModal = dynamic(
-  () => import('@/components/products/ProductModal').then((mod) => mod.ProductModal),
+  () => import('@/components/products/ProductModal'),
   { ssr: false }
 );
 
@@ -268,5 +269,5 @@ export function ProductCard({ product: p }: Props) {
   );
 }
 
-// ✅ AGREGADO: export default para dynamic import
+// ✅ Exportación por defecto
 export default ProductCard;

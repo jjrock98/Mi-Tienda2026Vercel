@@ -4,9 +4,9 @@ import { ShoppingCart } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { Product } from '@/types';
 
-// ✅ Carga dinámica para evitar problemas de SSR/SSG
+// ✅ AHORA usa la exportación por defecto (sin .then)
 const ProductModal = dynamic(
-  () => import('@/components/products/ProductModal').then((mod) => mod.ProductModal),
+  () => import('@/components/products/ProductModal'),
   { ssr: false }
 );
 
@@ -34,5 +34,5 @@ export function ProductModalTrigger({ product, triggerLabel }: Props) {
   );
 }
 
-// ✅ AGREGADO: export default para dynamic import
+// ✅ Exportación por defecto
 export default ProductModalTrigger;
