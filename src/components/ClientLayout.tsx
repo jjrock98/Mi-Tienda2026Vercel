@@ -11,11 +11,9 @@ import { CookieConsent } from '@/components/common/CookieConsent';
 import { BackToTop } from '@/components/common/BackToTop';
 import { ConfirmationMessage } from '@/components/common/ConfirmationMessage';
 
-const Navbar = dynamic(() => import('@/components/layout/Navbar').then((mod) => mod.Navbar), { ssr: false });
-const EmailVerificationBanner = dynamic(
-  () => import('@/components/common/EmailVerificationBanner').then((mod) => mod.EmailVerificationBanner),
-  { ssr: false }
-);
+// ✅ AHORA usa la exportación por defecto (sin .then)
+const Navbar = dynamic(() => import('@/components/layout/Navbar'), { ssr: false });
+const EmailVerificationBanner = dynamic(() => import('@/components/common/EmailVerificationBanner'), { ssr: false });
 
 interface ClientLayoutProps {
   children: React.ReactNode;
